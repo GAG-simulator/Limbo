@@ -614,7 +614,7 @@
             "Кирка (Деревянная)": { description: "Простая кирка для добычи камня.", art: art.pickaxe },
             "Меч (Деревянный)": { description: "Простой меч для защиты. Урон: 3.", art: art.sword },
             "Топор (Каменный)": { description: "Более прочный топор. Добывает в 2 раза больше ресурсов.", art: art.stone_axe },
-            "Кирка (Каменная)": { description: "Более прочная кирка. Добывает в 2 раза больше ресурсов.", art: art.stone_pickaxe },
+            "Кирка (Каменный)": { description: "Более прочная кирка. Добывает в 2 раза больше ресурсов.", art: art.stone_pickaxe },
             "Меч (Каменный)": { description: "Более прочный меч. Урон: 5.", art: art.stone_sword },
             "Топор (Огненный)": { description: "Мощный топор, который рубит сразу несколько деревьев и поджигает врагов вокруг вас. Замедляет при ношении. Урон ауры: 15/сек.", art: art.fire_axe },
             "Кирка (Огненная)": { description: "Очень быстро ломает камни, добывая много ресурсов.", art: art.fire_pickaxe },
@@ -958,44 +958,6 @@
                         if (e.moveTimer <= 0) { e.angle = Math.random() * Math.PI * 2; e.moveTimer = Math.random() * 2 + 1; }
                         moveX = Math.cos(e.angle) * e.speed * 0.5 * dt; moveY = Math.sin(e.angle) * e.speed * 0.5 * dt;
                     }
-                    
-                    if (e.attackCooldown <= 0) {
-                        const distToPlayer = Math.hypot(e.x - player.x, e.y - player.y);
-                        
-                        if (e.isBoss) {
-                            if (e.type === ENTITY_TYPES.ARCHANGEL && distToPlayer < TILE_SIZE * 10) {
-                                const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
-                                const projectileSpeed = 200;
-                                for (let k = -1; k <= 1; k++) {
-                                    const angle = angleToPlayer + (k * Math.PI / 16);
-                                    projectiles.push({ x: e.x, y: e.y, vx: Math.cos(angle) * projectileSpeed, vy: Math.sin(angle) * projectileSpeed, lifetime: 6, damage: e.damage });
-                                }
-                                e.attackCooldown = 3.5;
-                            }
-                            else if (e.type === ENTITY_TYPES.MUTANT_HUMAN && distToPlayer < TILE_SIZE * 2) {
-                                player.mentalHealth -= e.damage * 2;
-                                const angle = Math.atan2(player.y - e.y, player.x - e.x);
-                                player.knockback.x = Math.cos(angle) * 500;
-                                player.knockback.y = Math.sin(angle) * 500;
-                                e.attackCooldown = 2.5;
-                            }
-                            else if (e.type === ENTITY_TYPES.DEMON && distToPlayer < TILE_SIZE * 8) {
-                                for (let k = 0; k < 2; k++) {
-                                    const spawnAngle = Math.random() * Math.PI * 2;
-                                    const spawnDist = TILE_SIZE * 1.5;
-                                    spawnEntity(ENTITY_TYPES.SHADOW, e.x + Math.cos(spawnAngle) * spawnDist, e.y + Math.sin(spawnAngle) * spawnDist);
-                                }
-                                showNotification("Демон призывает тени!");
-                                e.attackCooldown = 6;
-                            }
-                        } 
-                        else if (target === player && ((e.type === ENTITY_TYPES.HUMAN && e.aggressive) || e.type === ENTITY_TYPES.SHADOW)) {
-                            if (distToPlayer < TILE_SIZE * 1.5) {
-                                 player.mentalHealth -= e.damage;
-                                 e.attackCooldown = 1.5;
-                            }
-                        }
-                    }
                 } else if (e.type === ENTITY_TYPES.ANGEL || e.type === ENTITY_TYPES.FALSE_ANGEL || (e.type === ENTITY_TYPES.HUMAN && !e.aggressive)) {
                     e.moveTimer -= dt;
                     if (e.moveTimer <= 0) { e.angle = Math.random() * Math.PI * 2; e.moveTimer = Math.random() * 3 + 2; }
@@ -1008,6 +970,45 @@
                     if (e.type === ENTITY_TYPES.HUMAN && Math.hypot(e.x - player.x, e.y - player.y) < HUMAN_HEAL_RADIUS) {
                          player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + HUMAN_HEAL_RATE * dt);
                     }
+                }
+            }
+
+            // --- ИСПРАВЛЕННАЯ ЛОГИКА АТАКИ ---
+            // Проверка атаки вынесена ВНЕ условий движения
+            if (e.attackCooldown <= 0) {
+                const distToPlayer = Math.hypot(e.x - player.x, e.y - player.y);
+                
+                if (e.isBoss) {
+                    if (e.type === ENTITY_TYPES.ARCHANGEL && distToPlayer < TILE_SIZE * 10) {
+                        const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
+                        const projectileSpeed = 200;
+                        for (let k = -1; k <= 1; k++) {
+                            const angle = angleToPlayer + (k * Math.PI / 16);
+                            projectiles.push({ x: e.x, y: e.y, vx: Math.cos(angle) * projectileSpeed, vy: Math.sin(angle) * projectileSpeed, lifetime: 6, damage: e.damage });
+                        }
+                        e.attackCooldown = 3.5;
+                    }
+                    else if (e.type === ENTITY_TYPES.MUTANT_HUMAN && distToPlayer < TILE_SIZE * 2) {
+                        player.mentalHealth -= e.damage * 2;
+                        const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                        player.knockback.x = Math.cos(angle) * 500;
+                        player.knockback.y = Math.sin(angle) * 500;
+                        e.attackCooldown = 2.5;
+                    }
+                    else if (e.type === ENTITY_TYPES.DEMON && distToPlayer < TILE_SIZE * 8) {
+                        for (let k = 0; k < 2; k++) {
+                            const spawnAngle = Math.random() * Math.PI * 2;
+                            const spawnDist = TILE_SIZE * 1.5;
+                            spawnEntity(ENTITY_TYPES.SHADOW, e.x + Math.cos(spawnAngle) * spawnDist, e.y + Math.sin(spawnAngle) * spawnDist);
+                        }
+                        showNotification("Демон призывает тени!");
+                        e.attackCooldown = 6;
+                    }
+                } 
+                // Атака обычных врагов (теней и агрессивных людей)
+                else if (((e.type === ENTITY_TYPES.HUMAN && e.aggressive) || e.type === ENTITY_TYPES.SHADOW) && distToPlayer < TILE_SIZE * 1.5) {
+                    player.mentalHealth -= e.damage;
+                    e.attackCooldown = 1.5;
                 }
             }
 
@@ -1058,7 +1059,7 @@
         const y = spawnY ?? player.y + Math.sin(angle) * radius;
         const baseEntity = { x, y, health: 100, hitTimer: 0, knockback: { x: 0, y: 0 }, isBoss: false, path: null, pathUpdateTimer: 0, moveTimer: 0, angle: 0, attackCooldown: 0 };
 
-        if (type === ENTITY_TYPES.SHADOW) entities.push({ ...baseEntity, type, speed: 60, health: 10, damage: 25 });
+        if (type === ENTITY_TYPES.SHADOW) entities.push({ ...baseEntity, type, speed: 130, health: 5, damage: 3 });
         else if (type === ENTITY_TYPES.ANGEL) entities.push({ ...baseEntity, type, speed: 30, health: 20 });
         else if (type === ENTITY_TYPES.FALSE_ANGEL) entities.push({ ...baseEntity, type, speed: 40, health: 50 });
         else if (type === ENTITY_TYPES.HUMAN) {
@@ -1066,7 +1067,7 @@
             entities.push({ ...baseEntity, type, speed: isAngry ? 75 : 50, health: 100, 
                 aggressive: isAngry, 
                 aggressionTimer: isAngry ? 30 : 0,
-                damage: isAngry ? 45 : 10 });
+                damage: isAngry ? 20 : 10 });
         }
         else if (type === ENTITY_TYPES.MUTANT_HUMAN) entities.push({ ...baseEntity, isBoss: true, type, speed: 80, health: 500, damage: 40, aggressive: true, attackCooldown: 2 });
         else if (type === ENTITY_TYPES.ARCHANGEL) entities.push({ ...baseEntity, isBoss: true, type, speed: 60, health: 400, damage: 15, aggressive: true, attackCooldown: 3.5 });
@@ -1663,4 +1664,3 @@
     </script>
 </body>
 </html>
-
