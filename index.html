@@ -37,7 +37,7 @@
             height: 100%;
             background-color: #111;
             cursor: crosshair;
-            transition: filter 1s linear;
+            transition: filter 1.5s linear;
         }
 
         /* --- UI Поверх игры --- */
@@ -373,7 +373,18 @@
     const MENTAL_HEALTH_DRAIN_RATE = 0.5, ANGEL_HEAL_RADIUS = TILE_SIZE * 4, ANGEL_HEAL_RATE = 15, HUMAN_HEAL_RADIUS = TILE_SIZE * 3, HUMAN_HEAL_RATE = 5;
     const DAY_DURATION_SECONDS = 24 * 60; // 24 минуты
 
+    // --- Новые константы ---
+    const CAMPFIRE_DURATION = 300; // 5 минут
+    const CAMPFIRE_HEAL_RATE = 3; // mental health per second
+    const CAMPFIRE_HEAL_RADIUS = TILE_SIZE * 3;
+    const CAMPFIRE_LIGHT_RADIUS = TILE_SIZE * 5;
+    const FLASHLIGHT_RANGE = TILE_SIZE * 8;
+    const FLASHLIGHT_CONE_ANGLE = Math.PI / 4; // 45 градусов
+    const FLASHLIGHT_DAMAGE = 10; // в секунду
+
     let player, world, entities, camera, joystick = { active: false, x: 0, y: 0, dx: 0, dy: 0 };
+    let placedObjects = []; // Для костров и т.д.
+    let mousePos = { x: 0, y: 0 };
     let selectedHotbarSlot = 0, keys = {}, gameState = 'start', lastTime = 0, gameTime = DAY_DURATION_SECONDS * 0.25; // Начать в 6 утра
 
     // --- Структуры данных ---
@@ -381,20 +392,26 @@
         WOOD: { id: 'WOOD', name: 'Дерево' }, STONE: { id: 'STONE', name: 'Камень' },
         AXE: { id: 'AXE', name: 'Топор' }, PICKAXE: { id: 'PICKAXE', name: 'Кирка' }, SWORD: { id: 'SWORD', name: 'Меч' },
         STONE_AXE: { id: 'STONE_AXE', name: 'Кам. топор' }, STONE_PICKAXE: { id: 'STONE_PICKAXE', name: 'Кам. кирка' },
+        STONE_SWORD: { id: 'STONE_SWORD', name: 'Кам. меч' },
         DARK_ORB: { id: 'DARK_ORB', name: 'Шар Тьмы' }, MENTAL_SALVE: { id: 'MENTAL_SALVE', name: 'Целебная мазь' },
         ACORN: { id: 'ACORN', name: 'Жёлудь' },
         SAKURA_PETAL: { id: 'SAKURA_PETAL', name: 'Лепесток сакуры' },
         DESPAIR_CRYSTAL: { id: 'DESPAIR_CRYSTAL', name: 'Кристалл отчаянья' },
         SLEEPING_BAG: { id: 'SLEEPING_BAG', name: 'Спальник' },
+        CAMPFIRE: { id: 'CAMPFIRE', name: 'Костёр' },
+        FLASHLIGHT: { id: 'FLASHLIGHT', name: 'Фонарик' },
     };
     const TILE_TYPES = { EMPTY: 0, TREE: 1, ROCK: 2, WOOD_BLOCK: 4, STONE_BLOCK: 5, BIRCH: 6, OAK: 7, SAKURA: 8 };
     const ENTITY_TYPES = { SHADOW: 'SHADOW', ANGEL: 'ANGEL', HUMAN: 'HUMAN' };
     const RECIPES = [
         { output: { type: ITEM_TYPES.STONE_AXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.STONE, count: 3 }] },
         { output: { type: ITEM_TYPES.STONE_PICKAXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.STONE, count: 3 }] },
+        { output: { type: ITEM_TYPES.STONE_SWORD, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.STONE, count: 2 }] },
         { output: { type: ITEM_TYPES.MENTAL_SALVE, count: 1 }, ingredients: [{ type: ITEM_TYPES.DARK_ORB, count: 1 }, { type: ITEM_TYPES.STONE, count: 5 }] },
         { output: { type: ITEM_TYPES.DESPAIR_CRYSTAL, count: 1 }, ingredients: [{ type: ITEM_TYPES.ACORN, count: 1 }, { type: ITEM_TYPES.DARK_ORB, count: 2 }, { type: ITEM_TYPES.WOOD, count: 10 }] },
         { output: { type: ITEM_TYPES.SLEEPING_BAG, count: 1 }, ingredients: [{ type: ITEM_TYPES.SAKURA_PETAL, count: 3 }, { type: ITEM_TYPES.WOOD, count: 1 }] },
+        { output: { type: ITEM_TYPES.CAMPFIRE, count: 1 }, ingredients: [{ type: ITEM_TYPES.STONE, count: 3 }, { type: ITEM_TYPES.WOOD, count: 3 }] },
+        { output: { type: ITEM_TYPES.FLASHLIGHT, count: 1 }, ingredients: [{ type: ITEM_TYPES.DESPAIR_CRYSTAL, count: 1 }, { type: ITEM_TYPES.DARK_ORB, count: 3 }] },
     ];
     let selectedRecipe = null;
 
@@ -416,12 +433,15 @@
         stone_block: [['#aaa', '#aaa', '#999', '#888'],['#aaa', '#888', '#888', '#999'],['#999', '#888', '#777', '#777'],['#888', '#999', '#777', '#aaa']],
         stone_axe: [['#888', '#666', null],[null, '#643', '#888'],[null, '#643', null]],
         stone_pickaxe: [['#888', '#888', '#888'],[null, '#643', null],[null, '#643', null]],
+        stone_sword: [[null, '#888', null],[null, '#888', null],[null, '#643', null]],
         dark_orb: [[null, '#201', null], ['#302', '#101', '#302'], [null, '#201', null]],
         mental_salve: [[null, '#afa', null], ['#9c9', '#dfd', '#9c9'], [null, '#afa', null]],
         acorn: [[null, '#864', null],['#864', '#a85', '#864'],[null, '#a85', null]],
         sakura_petal: [[null, '#fde', null], ['#fde', '#fbc', '#fde']],
         despair_crystal: [[null, '#aaf', '#aaf', null], ['#aaf', '#fff', '#fff', '#aaf'], ['#aaf', '#fff', '#fff', '#aaf'], [null, '#aaf', '#aaf', null]],
         sleeping_bag: [[null, '#d88', '#d88', '#c66'], [null, '#d88', '#c66', '#c66'], ['#432', '#432', '#432', '#432']],
+        campfire: [[null, '#f80', '#fc0', null], ['#f80', '#a00', '#f80', '#fc0'], ['#888', '#777', '#888', '#777']],
+        flashlight: [[null, '#ddd', '#ddd'], ['#666', '#444', '#444'], ['#666', '#444', '#444'], [null, '#666', null]],
     };
     const drawPixelArtOnCtx = (tCtx, x, y, s, p) => {
         const pS = s / p.length;
@@ -483,6 +503,8 @@
         camera = { x: 0, y: 0 };
         world = Array(WORLD_WIDTH).fill(0).map(() => Array(WORLD_HEIGHT).fill(TILE_TYPES.EMPTY));
         entities = [];
+        placedObjects = [];
+        mousePos = { x: canvas.width / 2, y: canvas.height / 2 };
         generateWorld();
         gameState = 'playing';
         gameOverScreen.style.display = 'none';
@@ -511,7 +533,21 @@
     
     // --- Обновление состояния ---
     function update(dt) {
-        gameTime += dt;
+        let timeScale = 1;
+        const hour = Math.floor((gameTime % DAY_DURATION_SECONDS) / (DAY_DURATION_SECONDS / 24));
+        const isNight = hour >= 20 || hour < 5;
+        if (isNight) {
+            const isNearCampfire = placedObjects.some(obj => 
+                obj.type === 'CAMPFIRE' && Math.hypot(player.x - obj.x, player.y - obj.y) < CAMPFIRE_LIGHT_RADIUS
+            );
+            if (isNearCampfire) {
+                timeScale = 2;
+            }
+        }
+        
+        const effectiveDt = dt * timeScale;
+        gameTime += effectiveDt;
+
         let dx = 0, dy = 0;
         if (keys['w'] || keys['ArrowUp']) dy -= 1; if (keys['s'] || keys['ArrowDown']) dy += 1;
         if (keys['a'] || keys['ArrowLeft']) dx -= 1; if (keys['d'] || keys['ArrowRight']) dx += 1;
@@ -523,7 +559,11 @@
             if (!isSolid(world[Math.floor(nextX / TILE_SIZE)]?.[Math.floor(nextY / TILE_SIZE)])) { player.x = nextX; player.y = nextY; }
         }
         player.mentalHealth -= MENTAL_HEALTH_DRAIN_RATE * dt;
+        
+        updatePlacedObjects(dt);
+        handleFlashlight(dt);
         updateEntities(dt);
+
         spawnEntities();
         if (player.attackCooldown > 0) player.attackCooldown -= dt;
         if (player.mentalHealth <= 0) { player.mentalHealth = 0; gameState = 'game_over'; gameOverScreen.style.display = 'flex'; }
@@ -535,84 +575,180 @@
     }
     function isPlayerPlaced(tileType) { return tileType === TILE_TYPES.WOOD_BLOCK || tileType === TILE_TYPES.STONE_BLOCK; }
 
-    function updateEntities(dt) {
-        entities.forEach((e, index) => {
-            if (e.health <= 0) {
-                entities.splice(index, 1);
-                return;
+    function updatePlacedObjects(dt) {
+        for (let i = placedObjects.length - 1; i >= 0; i--) {
+            const obj = placedObjects[i];
+            obj.duration -= dt;
+            if (obj.duration <= 0) {
+                placedObjects.splice(i, 1);
+                continue;
             }
-            let moveX = 0, moveY = 0;
-            // --- Логика тени ---
-            if (e.type === ENTITY_TYPES.SHADOW) {
-                let target = {x: player.x, y: player.y};
-                let closestDist = Math.hypot(e.x - player.x, e.y - player.y);
-                entities.forEach(otherE => {
-                    if (otherE.type === ENTITY_TYPES.HUMAN && !otherE.aggressive) {
-                        const dist = Math.hypot(e.x - otherE.x, e.y - otherE.y);
-                        if (dist < closestDist) { closestDist = dist; target = otherE; }
-                    }
-                });
 
-                e.pathUpdateTimer -= dt;
-                if (e.pathUpdateTimer <= 0) {
-                    e.pathUpdateTimer = 1.0;
-                    e.path = findPath(Math.floor(e.x / TILE_SIZE), Math.floor(e.y / TILE_SIZE), Math.floor(target.x / TILE_SIZE), Math.floor(target.y / TILE_SIZE));
-                    if (!e.path) e.moveTimer = 0;
+            if (obj.type === 'CAMPFIRE') {
+                const dist = Math.hypot(player.x - obj.x, player.y - obj.y);
+                if (dist < CAMPFIRE_HEAL_RADIUS) {
+                    player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + CAMPFIRE_HEAL_RATE * dt);
                 }
-                
-                if (e.path && e.path.length > 0) {
-                    const pathTarget = e.path[0], angle = Math.atan2(pathTarget.y - e.y, pathTarget.x - e.x);
-                    moveX = Math.cos(angle) * e.speed * dt; moveY = Math.sin(angle) * e.speed * dt;
-                    if (Math.hypot(pathTarget.y - e.y, pathTarget.x - e.x) < TILE_SIZE / 2) e.path.shift();
-                } else { 
-                    e.moveTimer -= dt;
-                    if (e.moveTimer <= 0) { e.angle = Math.random() * Math.PI * 2; e.moveTimer = Math.random() * 2 + 1; }
-                    moveX = Math.cos(e.angle) * e.speed * 0.5 * dt; moveY = Math.sin(e.angle) * e.speed * 0.5 * dt;
+            }
+        }
+    }
+    
+    function getFlashlightAngle() {
+        if (joystick.active && (joystick.dx !== 0 || joystick.dy !== 0)) {
+            return Math.atan2(joystick.dy, joystick.dx);
+        }
+        return Math.atan2(mousePos.y - canvas.height / 2, mousePos.x - canvas.width / 2);
+    }
+
+    function handleFlashlight(dt) {
+        const selectedItem = player.inventory[selectedHotbarSlot];
+        if (!selectedItem || selectedItem.type !== ITEM_TYPES.FLASHLIGHT || gameState !== 'playing') {
+            return;
+        }
+
+        const angle = getFlashlightAngle();
+
+        for (let i = entities.length - 1; i >= 0; i--) {
+            const e = entities[i];
+            if (e.type === ENTITY_TYPES.SHADOW) {
+                const dist = Math.hypot(e.x - player.x, e.y - player.y);
+                if (dist > 0 && dist < FLASHLIGHT_RANGE) {
+                    const angleToShadow = Math.atan2(e.y - player.y, e.x - player.x);
+                    let angleDiff = Math.abs(angle - angleToShadow);
+                    if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff; // Учет перехода через 180/-180 градусов
+
+                    if (angleDiff < FLASHLIGHT_CONE_ANGLE / 2) {
+                        e.health -= FLASHLIGHT_DAMAGE * dt;
+                        if (e.health <= 0) {
+                             if (Math.random() < 1/3) {
+                                 addItemToInventory(ITEM_TYPES.DARK_ORB, 1);
+                                 showNotification("+1 Шар Тьмы");
+                             }
+                             entities.splice(i, 1); // Безопасное удаление
+                        }
+                    }
                 }
-                if (Math.hypot(e.x - target.x, e.y - target.y) < TILE_SIZE) {
-                     if (target === player) player.mentalHealth -= 20 * dt;
-                     else target.health -= 20 * dt;
-                }
-            // --- Логика ангела ---
-            } else if (e.type === ENTITY_TYPES.ANGEL) {
-                e.moveTimer -= dt;
-                if (e.moveTimer <= 0) { e.angle = Math.random() * Math.PI * 2; e.moveTimer = Math.random() * 3 + 2; }
-                moveX = Math.cos(e.angle) * e.speed * dt; moveY = Math.sin(e.angle) * e.speed * dt;
-                if (Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS) player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + ANGEL_HEAL_RATE * dt);
-            // --- Логика человека ---
-            } else if (e.type === ENTITY_TYPES.HUMAN) {
-                if(e.aggressive) { 
+            }
+        }
+    }
+
+
+    function updateEntities(dt) {
+        for (let i = entities.length - 1; i >= 0; i--) {
+            const e = entities[i];
+            if (e.health <= 0) {
+                entities.splice(i, 1);
+                continue;
+            }
+            if (e.hitTimer > 0) e.hitTimer -= dt;
+
+            let moveX = 0, moveY = 0;
+            let isKnockedBack = Math.abs(e.knockback.x) > 0.1 || Math.abs(e.knockback.y) > 0.1;
+
+            if (isKnockedBack) {
+                moveX = e.knockback.x * dt;
+                moveY = e.knockback.y * dt;
+                e.knockback.x *= 0.9; // Friction
+                e.knockback.y *= 0.9;
+            } else {
+                 // --- Логика тени ---
+                if (e.type === ENTITY_TYPES.SHADOW) {
+                    let target = {x: player.x, y: player.y};
+                    let closestDist = Math.hypot(e.x - player.x, e.y - player.y);
+                    entities.forEach(otherE => {
+                        if (otherE.type === ENTITY_TYPES.HUMAN && !otherE.aggressive) {
+                            const dist = Math.hypot(e.x - otherE.x, e.y - otherE.y);
+                            if (dist < closestDist) { closestDist = dist; target = otherE; }
+                        }
+                    });
+
                     e.pathUpdateTimer -= dt;
                     if (e.pathUpdateTimer <= 0) {
                         e.pathUpdateTimer = 1.0;
-                        e.path = findPath(Math.floor(e.x / TILE_SIZE), Math.floor(e.y / TILE_SIZE), Math.floor(player.x / TILE_SIZE), Math.floor(player.y / TILE_SIZE));
+                        e.path = findPath(Math.floor(e.x / TILE_SIZE), Math.floor(e.y / TILE_SIZE), Math.floor(target.x / TILE_SIZE), Math.floor(target.y / TILE_SIZE));
+                        if (!e.path) e.moveTimer = 0;
                     }
+                    
                     if (e.path && e.path.length > 0) {
-                        const target = e.path[0], angle = Math.atan2(target.y - e.y, target.x - e.x);
+                        const pathTarget = e.path[0], angle = Math.atan2(pathTarget.y - e.y, pathTarget.x - e.x);
                         moveX = Math.cos(angle) * e.speed * dt; moveY = Math.sin(angle) * e.speed * dt;
-                        if (Math.hypot(target.y - e.y, target.x - e.x) < TILE_SIZE / 2) e.path.shift();
+                        if (Math.hypot(pathTarget.y - e.y, pathTarget.x - e.x) < TILE_SIZE / 2) e.path.shift();
+                    } else { 
+                        e.moveTimer -= dt;
+                        if (e.moveTimer <= 0) { e.angle = Math.random() * Math.PI * 2; e.moveTimer = Math.random() * 2 + 1; }
+                        moveX = Math.cos(e.angle) * e.speed * 0.5 * dt; moveY = Math.sin(e.angle) * e.speed * 0.5 * dt;
                     }
-                    if (Math.hypot(e.x - player.x, e.y - player.y) < TILE_SIZE * 1.5) { 
-                        player.mentalHealth -= e.damage * dt; 
-                        entities.forEach(otherE => {
-                            if (otherE.type === ENTITY_TYPES.HUMAN && !otherE.aggressive && Math.hypot(e.x - otherE.x, e.y - otherE.y) < TILE_SIZE * 2) {
-                                otherE.health -= e.damage * 0.25 * dt;
-                            }
-                        });
+                    if (Math.hypot(e.x - target.x, e.y - target.y) < TILE_SIZE) {
+                        const selectedItem = player.inventory[selectedHotbarSlot];
+                        let isStunnedByFlashlight = false;
+                        if (target === player && selectedItem && selectedItem.type === ITEM_TYPES.FLASHLIGHT) {
+                            const flashlightAngle = getFlashlightAngle();
+                            const angleToShadow = Math.atan2(e.y - player.y, e.x - player.x);
+                            let angleDiff = Math.abs(flashlightAngle - angleToShadow);
+                            if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+                            if (angleDiff < FLASHLIGHT_CONE_ANGLE / 2) isStunnedByFlashlight = true;
+                        }
+
+                        if (!isStunnedByFlashlight) {
+                            if (target === player) player.mentalHealth -= 20 * dt;
+                            else target.health -= 20 * dt;
+                        }
                     }
-                } else { 
+                // --- Логика ангела ---
+                } else if (e.type === ENTITY_TYPES.ANGEL) {
                     e.moveTimer -= dt;
                     if (e.moveTimer <= 0) { e.angle = Math.random() * Math.PI * 2; e.moveTimer = Math.random() * 3 + 2; }
                     moveX = Math.cos(e.angle) * e.speed * dt; moveY = Math.sin(e.angle) * e.speed * dt;
-                    if (Math.hypot(e.x - player.x, e.y - player.y) < HUMAN_HEAL_RADIUS) player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + HUMAN_HEAL_RATE * dt);
+                    if (Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS) player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + ANGEL_HEAL_RATE * dt);
+                // --- Логика человека ---
+                } else if (e.type === ENTITY_TYPES.HUMAN) {
+                    if(e.aggressive) {
+                        e.aggressionTimer -= dt;
+                        if (e.aggressionTimer <= 0) {
+                            e.aggressive = false;
+                            e.path = null;
+                            showNotification("Человек успокоился.");
+                        }
+
+                        e.pathUpdateTimer -= dt;
+                        if (e.pathUpdateTimer <= 0) {
+                            e.pathUpdateTimer = 1.0;
+                            e.path = findPath(Math.floor(e.x / TILE_SIZE), Math.floor(e.y / TILE_SIZE), Math.floor(player.x / TILE_SIZE), Math.floor(player.y / TILE_SIZE));
+                        }
+                        if (e.path && e.path.length > 0) {
+                            const target = e.path[0], angle = Math.atan2(target.y - e.y, target.x - e.x);
+                            moveX = Math.cos(angle) * e.speed * dt; moveY = Math.sin(angle) * e.speed * dt;
+                            if (Math.hypot(target.y - e.y, target.x - e.x) < TILE_SIZE / 2) e.path.shift();
+                        }
+                        if (Math.hypot(e.x - player.x, e.y - player.y) < TILE_SIZE * 1.5) { 
+                            player.mentalHealth -= e.damage * dt; 
+                            entities.forEach(otherE => {
+                                if (otherE.type === ENTITY_TYPES.HUMAN && !otherE.aggressive && Math.hypot(e.x - otherE.x, e.y - otherE.y) < TILE_SIZE * 2) {
+                                    otherE.health -= e.damage * 0.25 * dt;
+                                }
+                            });
+                        }
+                    } else { 
+                        e.moveTimer -= dt;
+                        if (e.moveTimer <= 0) { e.angle = Math.random() * Math.PI * 2; e.moveTimer = Math.random() * 3 + 2; }
+                        moveX = Math.cos(e.angle) * e.speed * dt; moveY = Math.sin(e.angle) * e.speed * dt;
+                        if (Math.hypot(e.x - player.x, e.y - player.y) < HUMAN_HEAL_RADIUS) player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + HUMAN_HEAL_RATE * dt);
+                    }
                 }
             }
 
             const nextX = e.x + moveX, nextY = e.y + moveY;
             if (!isSolid(world[Math.floor(nextX / TILE_SIZE)]?.[Math.floor(nextY / TILE_SIZE)])) { e.x = nextX; e.y = nextY; } 
-            else { e.moveTimer = 0; if (e.path) e.path = null; } 
+            else { 
+                if (isKnockedBack) {
+                    e.knockback.x = 0;
+                    e.knockback.y = 0;
+                } else {
+                    e.moveTimer = 0; if (e.path) e.path = null; 
+                }
+            } 
             e.x = Math.max(0, Math.min(e.x, WORLD_WIDTH * TILE_SIZE)); e.y = Math.max(0, Math.min(e.y, WORLD_HEIGHT * TILE_SIZE));
-        });
+        }
     }
     function spawnEntities() {
         if (entities.filter(e => e.type === ENTITY_TYPES.SHADOW).length < 10 && Math.random() < 0.01) spawnEntity(ENTITY_TYPES.SHADOW);
@@ -623,13 +759,15 @@
         const angle = Math.random() * Math.PI * 2, radius = Math.max(canvas.width, canvas.height);
         const x = spawnX ?? player.x + Math.cos(angle) * radius;
         const y = spawnY ?? player.y + Math.sin(angle) * radius;
+        const baseEntity = { x, y, health: 100, hitTimer: 0, knockback: { x: 0, y: 0 } };
 
-        if (type === ENTITY_TYPES.SHADOW) entities.push({ type, x, y, speed: 60, health: 10, path: null, pathUpdateTimer: 0, moveTimer: 0, angle: 0 });
-        else if (type === ENTITY_TYPES.ANGEL) entities.push({ type, x, y, speed: 30, health: 20, moveTimer: 0, angle: 0 });
+        if (type === ENTITY_TYPES.SHADOW) entities.push({ ...baseEntity, type, speed: 60, health: 10, path: null, pathUpdateTimer: 0, moveTimer: 0, angle: 0 });
+        else if (type === ENTITY_TYPES.ANGEL) entities.push({ ...baseEntity, type, speed: 30, health: 20, moveTimer: 0, angle: 0 });
         else if (type === ENTITY_TYPES.HUMAN) {
             const isAngry = (spawnX !== undefined) ? Math.random() < 0.5 : Math.random() < 0.3;
-            entities.push({ type, x, y, speed: isAngry ? 75 : 50, health: 100, moveTimer: 0, angle: 0, 
+            entities.push({ ...baseEntity, type, speed: isAngry ? 75 : 50, health: 100, moveTimer: 0, angle: 0, 
                 aggressive: isAngry, 
+                aggressionTimer: isAngry ? 30 : 0,
                 damage: isAngry ? 30 : 15, 
                 path: null, pathUpdateTimer: 0 });
         }
@@ -637,9 +775,11 @@
     
     // --- Отрисовка ---
     function draw() {
-        const timePercent = (gameTime % DAY_DURATION_SECONDS) / DAY_DURATION_SECONDS;
-        const lightLevel = 0.3 + Math.sin(timePercent * Math.PI * 2 - Math.PI / 2) * 0.7 + 0.3;
-        canvas.style.filter = `brightness(${Math.min(1, lightLevel)})`;
+        const hour = Math.floor((gameTime % DAY_DURATION_SECONDS) / (DAY_DURATION_SECONDS / 24));
+        const isNight = hour >= 20 || hour < 5;
+        const lightLevel = isNight ? 0.4 : 1.0;
+        canvas.style.filter = `brightness(${lightLevel})`;
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         camera.x = player.x - canvas.width / 2; camera.y = player.y - canvas.height / 2;
         const startCol = Math.floor(camera.x / TILE_SIZE), endCol = startCol + Math.ceil(canvas.width / TILE_SIZE) + 1;
@@ -655,8 +795,28 @@
             else if (tile === TILE_TYPES.WOOD_BLOCK) drawPixelArt(dX, dY, TILE_SIZE, art.wood_block);
             else if (tile === TILE_TYPES.STONE_BLOCK) drawPixelArt(dX, dY, TILE_SIZE, art.stone_block);
         }
+        
+        placedObjects.forEach(obj => {
+            if (obj.type === 'CAMPFIRE') {
+                const dX = obj.x - camera.x;
+                const dY = obj.y - camera.y;
+                
+                const gradient = ctx.createRadialGradient(dX, dY, TILE_SIZE * 0.5, dX, dY, CAMPFIRE_LIGHT_RADIUS);
+                gradient.addColorStop(0, 'rgba(255, 180, 50, 0.25)');
+                gradient.addColorStop(1, 'rgba(255, 180, 50, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(dX, dY, CAMPFIRE_LIGHT_RADIUS, 0, Math.PI * 2);
+                ctx.fill();
+
+                drawPixelArt(dX - TILE_SIZE/2, dY - TILE_SIZE/2, TILE_SIZE, art.campfire);
+            }
+        });
+
         entities.forEach(e => {
             const dX = e.x - camera.x, dY = e.y - camera.y;
+            
+            // Отрисовка сущности
             if (e.type === ENTITY_TYPES.SHADOW) drawPixelArt(dX - TILE_SIZE / 2, dY - TILE_SIZE / 2, TILE_SIZE, art.shadow(Math.random() > 0.5));
             else if (e.type === ENTITY_TYPES.ANGEL) {
                 ctx.beginPath(); ctx.arc(dX, dY, ANGEL_HEAL_RADIUS, 0, Math.PI * 2);
@@ -672,10 +832,29 @@
                  }
                  drawPixelArt(dX - TILE_SIZE / 2, dY - TILE_SIZE / 2, TILE_SIZE, art.human);
             }
+            // Отрисовка красного эффекта при ударе
+            if (e.hitTimer > 0) {
+                ctx.fillStyle = 'rgba(255, 50, 50, 0.6)';
+                ctx.fillRect(dX - TILE_SIZE / 2, dY - TILE_SIZE / 2, TILE_SIZE, TILE_SIZE);
+            }
         });
         drawPixelArt(canvas.width/2 - TILE_SIZE/2, canvas.height/2 - TILE_SIZE/2, TILE_SIZE, art.player);
         
         const selectedItem = player.inventory[selectedHotbarSlot];
+        
+        if (selectedItem && selectedItem.type === ITEM_TYPES.FLASHLIGHT && gameState === 'playing') {
+            const angle = getFlashlightAngle();
+            const pX = canvas.width / 2;
+            const pY = canvas.height / 2;
+
+            ctx.fillStyle = 'rgba(255, 255, 220, 0.15)';
+            ctx.beginPath();
+            ctx.moveTo(pX, pY);
+            ctx.arc(pX, pY, FLASHLIGHT_RANGE, angle - FLASHLIGHT_CONE_ANGLE / 2, angle + FLASHLIGHT_CONE_ANGLE / 2);
+            ctx.lineTo(pX, pY);
+            ctx.fill();
+        }
+
         if (selectedItem && gameState === 'playing') {
             let artKey = Object.keys(ITEM_TYPES).find(key => ITEM_TYPES[key].id === selectedItem.type.id)?.toLowerCase();
             if (selectedItem.type.id === 'WOOD') artKey = 'wood_block';
@@ -886,7 +1065,11 @@
                 player.attackCooldown = 1; return;
             }
             if (selectedItem.type === ITEM_TYPES.SLEEPING_BAG) {
-                gameTime += DAY_DURATION_SECONDS;
+                const currentDay = Math.floor(gameTime / DAY_DURATION_SECONDS);
+                const nextDayStart = (currentDay + 1) * DAY_DURATION_SECONDS;
+                const randomHourFraction = (6 + Math.random() * 3) / 24; // от 6:00 до 9:00
+                gameTime = nextDayStart + DAY_DURATION_SECONDS * randomHourFraction;
+                
                 player.mentalHealth = player.maxMentalHealth;
                 removeItemFromInventory(ITEM_TYPES.SLEEPING_BAG, 1);
                 if (Math.random() < 0.20) {
@@ -909,21 +1092,38 @@
 
         let didAttack = false;
         if (selectedItem && selectedItem.type.id.includes('SWORD')) {
-            const swordDamage = 3;
+            const isStone = selectedItem.type.id === 'STONE_SWORD';
+            const swordDamage = isStone ? 5 : 3;
+            const knockbackForce = isStone ? 300 : 250;
+            
             entities.forEach(e => { 
                 if (Math.hypot(e.x - mouseX, e.y - mouseY) < TILE_SIZE * 1.2) {
-                    if (e.type === ENTITY_TYPES.SHADOW) {
-                        e.health -= swordDamage; 
-                        if (e.health <= 0) addItemToInventory(ITEM_TYPES.DARK_ORB, 1);
-                        didAttack = true;
+                    let wasHit = false;
+                    if (e.type === ENTITY_TYPES.SHADOW || e.type === ENTITY_TYPES.HUMAN) {
+                         wasHit = true;
+                         e.health -= swordDamage;
+                         if (e.type === ENTITY_TYPES.HUMAN) {
+                             e.aggressive = true;
+                             e.aggressionTimer = 30; // 30 секунд агрессии
+                         }
+                         if (e.health <= 0) {
+                            if (e.type === ENTITY_TYPES.SHADOW) addItemToInventory(ITEM_TYPES.DARK_ORB, 1);
+                            else if (e.type === ENTITY_TYPES.HUMAN) {
+                                if (Math.random() < 0.5) addItemToInventory(ITEM_TYPES.DARK_ORB, 1);
+                                else addItemToInventory(ITEM_TYPES.MENTAL_SALVE, 1);
+                            }
+                         }
                     } else if (e.type === ENTITY_TYPES.ANGEL) {
-                        player.mentalHealth *= 0.5; e.health -= swordDamage; didAttack = true;
-                    } else if (e.type === ENTITY_TYPES.HUMAN) {
-                        e.aggressive = true; e.health -= swordDamage;
-                        if (e.health <= 0) {
-                            if (Math.random() < 0.5) addItemToInventory(ITEM_TYPES.DARK_ORB, 1);
-                            else addItemToInventory(ITEM_TYPES.MENTAL_SALVE, 1);
-                        }
+                        wasHit = true;
+                        player.mentalHealth *= 0.5; 
+                        e.health -= swordDamage;
+                    }
+
+                    if (wasHit) {
+                        e.hitTimer = 0.2; // 0.2 секунды красного свечения
+                        const angle = Math.atan2(e.y - player.y, e.x - player.x);
+                        e.knockback.x = Math.cos(angle) * knockbackForce;
+                        e.knockback.y = Math.sin(angle) * knockbackForce;
                         didAttack = true;
                     }
                 }
@@ -958,6 +1158,15 @@
         else if (tile === TILE_TYPES.EMPTY) {
             if (selectedItem.type === ITEM_TYPES.WOOD && countItems(ITEM_TYPES.WOOD) > 0) { world[gridX][gridY] = TILE_TYPES.WOOD_BLOCK; removeItemFromInventory(ITEM_TYPES.WOOD, 1); } 
             else if (selectedItem.type === ITEM_TYPES.STONE && countItems(ITEM_TYPES.STONE) > 0) { world[gridX][gridY] = TILE_TYPES.STONE_BLOCK; removeItemFromInventory(ITEM_TYPES.STONE, 1); }
+            else if (selectedItem.type === ITEM_TYPES.CAMPFIRE && countItems(ITEM_TYPES.CAMPFIRE) > 0) {
+                placedObjects.push({
+                    type: 'CAMPFIRE',
+                    x: gridX * TILE_SIZE + TILE_SIZE / 2, // центр тайла
+                    y: gridY * TILE_SIZE + TILE_SIZE / 2,
+                    duration: CAMPFIRE_DURATION
+                });
+                removeItemFromInventory(ITEM_TYPES.CAMPFIRE, 1);
+            }
         }
     }
 
@@ -976,6 +1185,10 @@
         }
     });
     window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+    window.addEventListener('mousemove', (e) => {
+        mousePos.x = e.clientX;
+        mousePos.y = e.clientY;
+    });
     canvas.addEventListener('mousedown', (e) => { if (e.button === 0) handleInteraction(e.clientX, e.clientY); });
     canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
     
