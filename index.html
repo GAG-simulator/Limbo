@@ -1059,7 +1059,7 @@
         const y = spawnY ?? player.y + Math.sin(angle) * radius;
         const baseEntity = { x, y, health: 100, hitTimer: 0, knockback: { x: 0, y: 0 }, isBoss: false, path: null, pathUpdateTimer: 0, moveTimer: 0, angle: 0, attackCooldown: 0 };
 
-        if (type === ENTITY_TYPES.SHADOW) entities.push({ ...baseEntity, type, speed: 130, health: 5, damage: 3 });
+        if (type === ENTITY_TYPES.SHADOW) entities.push({ ...baseEntity, type, speed: 130, health: 5, damage: 2 });
         else if (type === ENTITY_TYPES.ANGEL) entities.push({ ...baseEntity, type, speed: 30, health: 20 });
         else if (type === ENTITY_TYPES.FALSE_ANGEL) entities.push({ ...baseEntity, type, speed: 40, health: 50 });
         else if (type === ENTITY_TYPES.HUMAN) {
@@ -1067,7 +1067,7 @@
             entities.push({ ...baseEntity, type, speed: isAngry ? 75 : 50, health: 100, 
                 aggressive: isAngry, 
                 aggressionTimer: isAngry ? 30 : 0,
-                damage: isAngry ? 20 : 10 });
+                damage: isAngry ? 10 : 10 });
         }
         else if (type === ENTITY_TYPES.MUTANT_HUMAN) entities.push({ ...baseEntity, isBoss: true, type, speed: 80, health: 500, damage: 40, aggressive: true, attackCooldown: 2 });
         else if (type === ENTITY_TYPES.ARCHANGEL) entities.push({ ...baseEntity, isBoss: true, type, speed: 60, health: 400, damage: 15, aggressive: true, attackCooldown: 3.5 });
