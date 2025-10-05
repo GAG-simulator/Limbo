@@ -51,7 +51,7 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            gap: 20px;
+            gap: 10px;
             pointer-events: none;
             z-index: 10;
         }
@@ -80,6 +80,17 @@
             text-align: center;
             font-size: clamp(14px, 4vw, 16px);
             flex-shrink: 0; /* Prevent shrinking */
+        }
+        #handbook-button {
+             width: 42px;
+             height: 42px;
+             font-size: 24px;
+             font-weight: bold;
+             padding: 0;
+             cursor: pointer;
+             flex-shrink: 0;
+             line-height: 40px;
+             text-align: center;
         }
 
         #bottom-ui {
@@ -231,15 +242,97 @@
                 width: 90vw;
             }
         }
+        
+        /* --- Справочник --- */
+        #handbook-panel {
+            background: rgba(26, 26, 26, 0.95);
+            border: 2px solid var(--border-color);
+            border-radius: var(--ui-radius);
+            width: clamp(300px, 90vw, 800px);
+            height: clamp(400px, 90vh, 600px);
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+        #handbook-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        #handbook-header h1 {
+            margin: 0;
+            font-size: clamp(24px, 6vw, 28px);
+        }
+        #handbook-close-button {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 32px;
+            cursor: pointer;
+            padding: 0 10px;
+        }
+        #handbook-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .handbook-tab {
+            background: var(--slot-bg);
+            border: 1px solid var(--border-color);
+            padding: 8px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .handbook-tab:hover {
+            background-color: #444;
+        }
+        .handbook-tab.active {
+            background-color: #555;
+            border-color: var(--highlight-color);
+        }
+        #handbook-content {
+            overflow-y: auto;
+            flex-grow: 1;
+            padding-right: 10px; /* для скроллбара */
+        }
+        .handbook-entry {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 10px;
+            border-bottom: 1px solid #333;
+        }
+        .handbook-entry:last-child {
+            border-bottom: none;
+        }
+        .handbook-entry-icon {
+            width: 48px;
+            height: 48px;
+            flex-shrink: 0;
+        }
+        .handbook-entry-text h3 {
+            margin: 0 0 5px 0;
+            color: var(--highlight-color);
+        }
+         .handbook-entry-text p {
+            margin: 0;
+            font-size: 14px;
+            color: #ccc;
+            line-height: 1.4;
+        }
 
 
         /* --- Джойстик и мобильные кнопки --- */
         #joystick-container {
             position: absolute;
-            /* Поднимаем джойстик над хотбаром */
             bottom: calc(var(--ui-padding) + var(--slot-size) + 20px);
             left: var(--ui-padding);
-            /* Уменьшаем размер джойстика */
             width: clamp(100px, 20vw, 120px);
             height: clamp(100px, 20vw, 120px);
             background-color: rgba(80, 80, 80, 0.3);
@@ -322,6 +415,17 @@
         <h1>Вы не можете умереть, но рассудок покинул вас и вы стали очередной тенью в этом месте</h1>
         <button id="restart-button">Попробовать снова</button>
     </div>
+    
+    <div id="handbook-screen" class="screen-overlay" style="display: none; z-index: 300;">
+        <div id="handbook-panel">
+            <div id="handbook-header">
+                <h1>Справочник</h1>
+                <button id="handbook-close-button">&times;</button>
+            </div>
+            <div id="handbook-tabs"></div>
+            <div id="handbook-content"></div>
+        </div>
+    </div>
 
     <div id="inventory-screen" class="screen-overlay" style="display: none;">
         <div id="crafting-panel" class="inventory-panel">
@@ -345,9 +449,12 @@
             <div id="mental-health-bar-container" class="game-ui-element">
                 <div id="mental-health-bar"></div>
             </div>
-            <div id="clock-container" class="game-ui-element">
-                <div id="day-counter">День 1</div>
-                <div id="time-display">06:00</div>
+             <div style="display: flex; gap: 10px; align-items: flex-start;">
+                <div id="clock-container" class="game-ui-element">
+                    <div id="day-counter">День 1</div>
+                    <div id="time-display">06:00</div>
+                </div>
+                <button id="handbook-button" class="game-ui-element">?</button>
             </div>
         </div>
         <div id="bottom-ui">
@@ -368,10 +475,15 @@
     const prequelScreen = document.getElementById('prequel-screen');
     const prequelButton = document.getElementById('prequel-button');
     const backFromPrequelButton = document.getElementById('back-from-prequel-button');
+    const handbookScreen = document.getElementById('handbook-screen');
+    const handbookButton = document.getElementById('handbook-button');
+    const handbookCloseButton = document.getElementById('handbook-close-button');
+
 
     const TILE_SIZE = 32, WORLD_WIDTH = 100, WORLD_HEIGHT = 100;
     const MENTAL_HEALTH_DRAIN_RATE = 0.5, ANGEL_HEAL_RADIUS = TILE_SIZE * 4, ANGEL_HEAL_RATE = 15, HUMAN_HEAL_RADIUS = TILE_SIZE * 3, HUMAN_HEAL_RATE = 5;
     const DAY_DURATION_SECONDS = 24 * 60; // 24 минуты
+    const PLAYER_STUN_DURATION = 3; // Для капкана
 
     // --- Новые константы ---
     const CAMPFIRE_DURATION = 300; // 5 минут
@@ -384,6 +496,8 @@
 
     let player, world, entities, camera, joystick = { active: false, x: 0, y: 0, dx: 0, dy: 0 };
     let placedObjects = []; // Для костров и т.д.
+    let traps = []; // Для ловушек
+    let projectiles = []; // Для снарядов боссов
     let mousePos = { x: 0, y: 0 };
     let selectedHotbarSlot = 0, keys = {}, gameState = 'start', lastTime = 0, gameTime = DAY_DURATION_SECONDS * 0.25; // Начать в 6 утра
 
@@ -393,6 +507,7 @@
         AXE: { id: 'AXE', name: 'Топор' }, PICKAXE: { id: 'PICKAXE', name: 'Кирка' }, SWORD: { id: 'SWORD', name: 'Меч' },
         STONE_AXE: { id: 'STONE_AXE', name: 'Кам. топор' }, STONE_PICKAXE: { id: 'STONE_PICKAXE', name: 'Кам. кирка' },
         STONE_SWORD: { id: 'STONE_SWORD', name: 'Кам. меч' },
+        FIRE_AXE: { id: 'FIRE_AXE', name: 'Огненный топор' }, FIRE_PICKAXE: { id: 'FIRE_PICKAXE', name: 'Огненная кирка' }, FIRE_SWORD: { id: 'FIRE_SWORD', name: 'Огненный меч' },
         DARK_ORB: { id: 'DARK_ORB', name: 'Шар Тьмы' }, MENTAL_SALVE: { id: 'MENTAL_SALVE', name: 'Целебная мазь' },
         ACORN: { id: 'ACORN', name: 'Жёлудь' },
         SAKURA_PETAL: { id: 'SAKURA_PETAL', name: 'Лепесток сакуры' },
@@ -402,14 +517,14 @@
         FLASHLIGHT: { id: 'FLASHLIGHT', name: 'Фонарик' },
     };
     const TILE_TYPES = { EMPTY: 0, TREE: 1, ROCK: 2, WOOD_BLOCK: 4, STONE_BLOCK: 5, BIRCH: 6, OAK: 7, SAKURA: 8 };
-    const ENTITY_TYPES = { SHADOW: 'SHADOW', ANGEL: 'ANGEL', HUMAN: 'HUMAN' };
+    const ENTITY_TYPES = { SHADOW: 'SHADOW', ANGEL: 'ANGEL', HUMAN: 'HUMAN', MUTANT_HUMAN: 'MUTANT_HUMAN', ARCHANGEL: 'ARCHANGEL', DEMON: 'DEMON', FALSE_ANGEL: 'FALSE_ANGEL' };
     const RECIPES = [
         { output: { type: ITEM_TYPES.STONE_AXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.STONE, count: 3 }] },
         { output: { type: ITEM_TYPES.STONE_PICKAXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.STONE, count: 3 }] },
         { output: { type: ITEM_TYPES.STONE_SWORD, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.STONE, count: 2 }] },
         { output: { type: ITEM_TYPES.MENTAL_SALVE, count: 1 }, ingredients: [{ type: ITEM_TYPES.DARK_ORB, count: 1 }, { type: ITEM_TYPES.STONE, count: 5 }] },
         { output: { type: ITEM_TYPES.DESPAIR_CRYSTAL, count: 1 }, ingredients: [{ type: ITEM_TYPES.ACORN, count: 1 }, { type: ITEM_TYPES.DARK_ORB, count: 2 }, { type: ITEM_TYPES.WOOD, count: 10 }] },
-        { output: { type: ITEM_TYPES.SLEEPING_BAG, count: 1 }, ingredients: [{ type: ITEM_TYPES.SAKURA_PETAL, count: 3 }, { type: ITEM_TYPES.WOOD, count: 1 }] },
+        { output: { type: ITEM_TYPES.SLEEPING_BAG, count: 1 }, ingredients: [{ type: ITEM_TYPES.SAKURA_PETAL, count: 3 }, { type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.MENTAL_SALVE, count: 1 }] },
         { output: { type: ITEM_TYPES.CAMPFIRE, count: 1 }, ingredients: [{ type: ITEM_TYPES.STONE, count: 3 }, { type: ITEM_TYPES.WOOD, count: 3 }] },
         { output: { type: ITEM_TYPES.FLASHLIGHT, count: 1 }, ingredients: [{ type: ITEM_TYPES.DESPAIR_CRYSTAL, count: 1 }, { type: ITEM_TYPES.DARK_ORB, count: 3 }] },
     ];
@@ -442,6 +557,15 @@
         sleeping_bag: [[null, '#d88', '#d88', '#c66'], [null, '#d88', '#c66', '#c66'], ['#432', '#432', '#432', '#432']],
         campfire: [[null, '#f80', '#fc0', null], ['#f80', '#a00', '#f80', '#fc0'], ['#888', '#777', '#888', '#777']],
         flashlight: [[null, '#ddd', '#ddd'], ['#666', '#444', '#444'], ['#666', '#444', '#444'], [null, '#666', null]],
+        // --- Новая графика ---
+        mutant_human: [['#bda', '#bda', null, null],['#494', '#494', '#bda', '#bda'],['#494', '#494', '#f00', '#494'],['#bda', '#bda', '#494', '#494'],[null, null, '#864', '#864']],
+        archangel: [['#ff0', '#ff0', '#ff0', '#ff0'],['#fff', '#ff0', '#ff0', '#fff'],[null, '#fff', '#fff', null],['#eee', '#eee', '#eee', '#eee'],['#eee', null, null, '#eee']],
+        demon: [['#f00', null, null, '#f00'],['#400', '#f00', '#f00', '#400'],['#400', '#200', '#200', '#400'],[null, '#200', '#200', null],['#100', null, null, '#100']],
+        false_angel: (f) => [[f ? '#ccc' : '#bbb', '#ccc', f ? '#ccc' : '#bbb'], [null, '#aaa', null]],
+        fire_axe: [['#f80', '#f60', null],[null, '#643', '#f80'],[null, '#643', null],[null, '#643', null]],
+        fire_pickaxe: [['#f80', '#f80', '#f80'],[null, '#643', null],[null, '#643', null],[null, '#643', null]],
+        fire_sword: [[null, '#f80', null],[null, '#f60', null],[null, '#ff0', null],[null, '#643', null]],
+        archangel_orb: [[null, '#ff0', '#ff0', null], ['#ff0', '#fff', '#fff', '#ff0'], ['#ff0', '#fff', '#fff', '#ff0'], [null, '#ff0', '#ff0', null]],
     };
     const drawPixelArtOnCtx = (tCtx, x, y, s, p) => {
         const pS = s / p.length;
@@ -450,6 +574,73 @@
         }
     };
     const drawPixelArt = (x, y, size, pixels) => drawPixelArtOnCtx(ctx, x, y, size, pixels);
+    
+    // --- Справочник ---
+    const HANDBOOK_DATA = {
+        "Существа": {
+            "Тень": {
+                description: "Слабое, но быстрое существо тьмы. Боится света. После смерти оставляет после себя Шар Тьмы. Урон: 25.",
+                art: art.shadow(false)
+            },
+            "Человек": {
+                description: "Обычный человек, застрявший в Лимбо. Обычно пассивен и восстанавливает ваш рассудок, если вы рядом. Однако, если его спровоцировать, он станет агрессивным. Урон (агрессивный): 45.",
+                art: art.human
+            },
+            "Ангел": {
+                description: "Светлое существо, которое мощно восстанавливает ваш рассудок. Не атакуйте его, иначе ваш рассудок сильно пострадает.",
+                art: art.angel(false)
+            },
+            "Лже-Ангел": {
+                description: "Выглядит как ангел, но является порождением тьмы. Быстро истощает ваш рассудок, если вы находитесь рядом.",
+                art: art.false_angel(false)
+            },
+        },
+        "Боссы": {
+             "Мутировавший Человек": {
+                description: "Огромный и агрессивный гуманоид. Атакует вблизи, нанося двойной урон (80) и сильно отбрасывая игрока.",
+                art: art.mutant_human
+            },
+            "Архангел": {
+                description: "Могущественное светлое существо, искаженное тьмой. Стреляет веером из трёх энергетических шаров, каждый наносит 15 урона.",
+                art: art.archangel
+            },
+            "Демон": {
+                description: "Повелитель теней. Не атакует сам, но призывает на помощь двух Теней. Очень живуч.",
+                art: art.demon
+            }
+        },
+        "Предметы": {
+            "Топор (Деревянный)": { description: "Простой топор для рубки деревьев.", art: art.axe },
+            "Кирка (Деревянная)": { description: "Простая кирка для добычи камня.", art: art.pickaxe },
+            "Меч (Деревянный)": { description: "Простой меч для защиты. Урон: 3.", art: art.sword },
+            "Топор (Каменный)": { description: "Более прочный топор. Добывает в 2 раза больше ресурсов.", art: art.stone_axe },
+            "Кирка (Каменная)": { description: "Более прочная кирка. Добывает в 2 раза больше ресурсов.", art: art.stone_pickaxe },
+            "Меч (Каменный)": { description: "Более прочный меч. Урон: 5.", art: art.stone_sword },
+            "Топор (Огненный)": { description: "Мощный топор, который рубит сразу несколько деревьев и поджигает врагов вокруг вас. Замедляет при ношении. Урон ауры: 15/сек.", art: art.fire_axe },
+            "Кирка (Огненная)": { description: "Очень быстро ломает камни, добывая много ресурсов.", art: art.fire_pickaxe },
+            "Меч (Огненный)": { description: "Очень мощный меч. Урон: 25.", art: art.fire_sword },
+            "Целебная мазь": { description: "Восстанавливает 50 единиц рассудка при использовании.", art: art.mental_salve },
+            "Кристалл отчаянья": { description: "Телепортирует вас к ближайшему Ангелу. Используйте с умом.", art: art.despair_crystal },
+            "Спальный мешок": { description: "Позволяет пропустить ночь и полностью восстановить рассудок. Есть шанс, что во время сна у вас украдут предметы.", art: art.sleeping_bag },
+            "Костёр": { description: "Источник света и тепла. Восстанавливает рассудок в небольшом радиусе и ускоряет течение времени ночью.", art: art.campfire },
+            "Фонарик": { description: "Освещает область перед вами, нанося урон Теням. Урон: 10/сек.", art: art.flashlight },
+        },
+        "Ресурсы": {
+            "Дерево": { description: "Основной ресурс для создания инструментов и построек. Добывается из деревьев.", art: art.wood_block },
+            "Камень": { description: "Основной ресурс для создания каменных инструментов и построек. Добывается из скал.", art: art.stone_block },
+            "Шар Тьмы": { description: "Эссенция тьмы, выпадающая из Теней. Используется в мощных рецептах.", art: art.dark_orb },
+            "Жёлудь": { description: "Иногда выпадает из дубов. Компонент для крафта.", art: art.acorn },
+            "Лепесток сакуры": { description: "Выпадает из сакуры. Используется для призыва союзников и крафта.", art: art.sakura_petal },
+        },
+        "Растения": {
+            "Дерево": { description: "Источник дерева.", art: art.tree },
+            "Береза": { description: "Дает больше дерева, чем обычное.", art: art.birch },
+            "Дуб": { description: "Источник дерева и желудей.", art: art.oak },
+            "Сакура": { description: "Источник дерева и лепестков сакуры.", art: art.sakura },
+            "Скала": { description: "Источник камня.", art: art.rock },
+        }
+    };
+
 
     // --- Поиск пути A* ---
     function findPath(startX, startY, endX, endY) {
@@ -496,7 +687,7 @@
     function initGame() {
         resizeCanvas();
         player = { x: (WORLD_WIDTH * TILE_SIZE) / 2, y: (WORLD_HEIGHT * TILE_SIZE) / 2, speed: 150, mentalHealth: 100, maxMentalHealth: 100,
-            inventory: Array(15).fill(null), attackCooldown: 0 };
+            inventory: Array(15).fill(null), attackCooldown: 0, stunTimer: 0, knockback: {x: 0, y: 0} };
         player.inventory[0] = { type: ITEM_TYPES.AXE, count: 1 };
         player.inventory[1] = { type: ITEM_TYPES.PICKAXE, count: 1 };
         player.inventory[2] = { type: ITEM_TYPES.SWORD, count: 1 };
@@ -504,6 +695,8 @@
         world = Array(WORLD_WIDTH).fill(0).map(() => Array(WORLD_HEIGHT).fill(TILE_TYPES.EMPTY));
         entities = [];
         placedObjects = [];
+        traps = [];
+        projectiles = [];
         mousePos = { x: canvas.width / 2, y: canvas.height / 2 };
         generateWorld();
         gameState = 'playing';
@@ -514,7 +707,6 @@
     function generateWorld() {
         for (let x = 0; x < WORLD_WIDTH; x++) for (let y = 0; y < WORLD_HEIGHT; y++) {
             const n = Math.random();
-            // Снижаем частоту появления всех объектов
             if (n > 0.98) world[x][y] = TILE_TYPES.ROCK;
             else if (n > 0.97) world[x][y] = TILE_TYPES.OAK;
             else if (n > 0.96) world[x][y] = TILE_TYPES.SAKURA;
@@ -548,23 +740,77 @@
         const effectiveDt = dt * timeScale;
         gameTime += effectiveDt;
 
-        let dx = 0, dy = 0;
-        if (keys['w'] || keys['ArrowUp']) dy -= 1; if (keys['s'] || keys['ArrowDown']) dy += 1;
-        if (keys['a'] || keys['ArrowLeft']) dx -= 1; if (keys['d'] || keys['ArrowRight']) dx += 1;
-        if (joystick.active) { dx += joystick.dx; dy += joystick.dy; }
-        if (dx !== 0 || dy !== 0) {
-            const mag = Math.sqrt(dx*dx + dy*dy);
-            const moveX = (dx / mag) * player.speed * dt, moveY = (dy / mag) * player.speed * dt;
-            const nextX = player.x + moveX, nextY = player.y + moveY;
-            if (!isSolid(world[Math.floor(nextX / TILE_SIZE)]?.[Math.floor(nextY / TILE_SIZE)])) { player.x = nextX; player.y = nextY; }
+        const selectedItem = player.inventory[selectedHotbarSlot];
+
+        if (player.stunTimer > 0) {
+            player.stunTimer -= dt;
+        } else {
+             if (Math.abs(player.knockback.x) > 0.1 || Math.abs(player.knockback.y) > 0.1) {
+                const knockbackMoveX = player.knockback.x * dt;
+                const knockbackMoveY = player.knockback.y * dt;
+                const nextX = player.x + knockbackMoveX;
+                const nextY = player.y + knockbackMoveY;
+                if (!isSolid(world[Math.floor(nextX / TILE_SIZE)]?.[Math.floor(nextY / TILE_SIZE)])) {
+                    player.x = nextX;
+                    player.y = nextY;
+                }
+                player.knockback.x *= 0.9; // Friction
+                player.knockback.y *= 0.9;
+            } else {
+                let currentSpeed = player.speed;
+                if (selectedItem && selectedItem.type === ITEM_TYPES.FIRE_AXE) {
+                    currentSpeed *= 0.7; // Замедление на 30%
+                }
+
+                let dx = 0, dy = 0;
+                if (keys['w'] || keys['ArrowUp']) dy -= 1; if (keys['s'] || keys['ArrowDown']) dy += 1;
+                if (keys['a'] || keys['ArrowLeft']) dx -= 1; if (keys['d'] || keys['ArrowRight']) dx += 1;
+                if (joystick.active) { dx += joystick.dx; dy += joystick.dy; }
+                if (dx !== 0 || dy !== 0) {
+                    const mag = Math.sqrt(dx*dx + dy*dy);
+                    const moveX = (dx / mag) * currentSpeed * dt, moveY = (dy / mag) * currentSpeed * dt;
+                    const nextX = player.x + moveX, nextY = player.y + moveY;
+                    if (!isSolid(world[Math.floor(nextX / TILE_SIZE)]?.[Math.floor(nextY / TILE_SIZE)])) { player.x = nextX; player.y = nextY; }
+                }
+            }
         }
+        
+        // Аура урона от огненного топора
+        if (selectedItem && selectedItem.type === ITEM_TYPES.FIRE_AXE) {
+            entities.forEach(e => {
+                if (e.type === ENTITY_TYPES.SHADOW || e.type === ENTITY_TYPES.DEMON || (e.type === ENTITY_TYPES.HUMAN && e.aggressive) || e.type === ENTITY_TYPES.MUTANT_HUMAN) {
+                    if (Math.hypot(player.x - e.x, player.y - e.y) < TILE_SIZE * 1.5) {
+                        e.health -= 15 * dt; // 15 урона в секунду
+                    }
+                }
+            });
+        }
+        
+        // Проверка столкновения с ловушками
+        for (let i = traps.length - 1; i >= 0; i--) {
+            const trap = traps[i];
+            if (Math.hypot(player.x - trap.x, player.y - trap.y) < TILE_SIZE / 2) {
+                if (trap.type === 'BEAR_TRAP') {
+                    player.stunTimer = PLAYER_STUN_DURATION;
+                    showNotification("Вы попали в капкан!");
+                } else if (trap.type === 'TRIPWIRE') {
+                    player.mentalHealth -= 30;
+                    showNotification("Вы задели растяжку!");
+                }
+                traps.splice(i, 1);
+                break;
+            }
+        }
+
         player.mentalHealth -= MENTAL_HEALTH_DRAIN_RATE * dt;
         
         updatePlacedObjects(dt);
+        updateProjectiles(dt);
         handleFlashlight(dt);
         updateEntities(dt);
 
         spawnEntities();
+        spawnTraps();
         if (player.attackCooldown > 0) player.attackCooldown -= dt;
         if (player.mentalHealth <= 0) { player.mentalHealth = 0; gameState = 'game_over'; gameOverScreen.style.display = 'flex'; }
     }
@@ -593,6 +839,29 @@
         }
     }
     
+    function updateProjectiles(dt) {
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+            const p = projectiles[i];
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.lifetime -= dt;
+
+            const gridX = Math.floor(p.x / TILE_SIZE);
+            const gridY = Math.floor(p.y / TILE_SIZE);
+
+            if (p.lifetime <= 0 || isSolid(world[gridX]?.[gridY])) {
+                projectiles.splice(i, 1);
+                continue;
+            }
+
+            if (Math.hypot(p.x - player.x, p.y - player.y) < TILE_SIZE * 0.75) {
+                player.mentalHealth -= p.damage;
+                projectiles.splice(i, 1);
+                continue;
+            }
+        }
+    }
+
     function getFlashlightAngle() {
         if (joystick.active && (joystick.dx !== 0 || joystick.dy !== 0)) {
             return Math.atan2(joystick.dy, joystick.dx);
@@ -636,11 +905,20 @@
     function updateEntities(dt) {
         for (let i = entities.length - 1; i >= 0; i--) {
             const e = entities[i];
+            if (!e) continue;
             if (e.health <= 0) {
+                if (e.isBoss) {
+                    const drops = [ITEM_TYPES.FIRE_AXE, ITEM_TYPES.FIRE_PICKAXE, ITEM_TYPES.FIRE_SWORD];
+                    const droppedTool = drops[Math.floor(Math.random() * drops.length)];
+                    addItemToInventory(droppedTool, 1);
+                    showNotification(`Босс повержен! Вы получили: ${droppedTool.name}`);
+                }
                 entities.splice(i, 1);
                 continue;
             }
             if (e.hitTimer > 0) e.hitTimer -= dt;
+            if (e.attackCooldown > 0) e.attackCooldown -= dt;
+
 
             let moveX = 0, moveY = 0;
             let isKnockedBack = Math.abs(e.knockback.x) > 0.1 || Math.abs(e.knockback.y) > 0.1;
@@ -651,88 +929,84 @@
                 e.knockback.x *= 0.9; // Friction
                 e.knockback.y *= 0.9;
             } else {
-                 // --- Логика тени ---
-                if (e.type === ENTITY_TYPES.SHADOW) {
+                 // --- Логика Боссов и агрессивных мобов ---
+                if (e.isBoss || (e.type === ENTITY_TYPES.HUMAN && e.aggressive) || e.type === ENTITY_TYPES.SHADOW) {
                     let target = {x: player.x, y: player.y};
-                    let closestDist = Math.hypot(e.x - player.x, e.y - player.y);
-                    entities.forEach(otherE => {
-                        if (otherE.type === ENTITY_TYPES.HUMAN && !otherE.aggressive) {
-                            const dist = Math.hypot(e.x - otherE.x, e.y - otherE.y);
-                            if (dist < closestDist) { closestDist = dist; target = otherE; }
-                        }
-                    });
+                    if (e.type === ENTITY_TYPES.SHADOW) {
+                        let closestDist = Math.hypot(e.x - player.x, e.y - player.y);
+                        entities.forEach(otherE => {
+                            if (otherE && otherE.type === ENTITY_TYPES.HUMAN && !otherE.aggressive) {
+                                const dist = Math.hypot(e.x - otherE.x, e.y - otherE.y);
+                                if (dist < closestDist) { closestDist = dist; target = otherE; }
+                            }
+                        });
+                    }
 
                     e.pathUpdateTimer -= dt;
                     if (e.pathUpdateTimer <= 0) {
-                        e.pathUpdateTimer = 1.0;
+                        e.pathUpdateTimer = e.isBoss ? 0.5 : 1.0;
                         e.path = findPath(Math.floor(e.x / TILE_SIZE), Math.floor(e.y / TILE_SIZE), Math.floor(target.x / TILE_SIZE), Math.floor(target.y / TILE_SIZE));
-                        if (!e.path) e.moveTimer = 0;
+                        if (!e.path && e.type !== ENTITY_TYPES.SHADOW) e.moveTimer = 0;
                     }
                     
                     if (e.path && e.path.length > 0) {
                         const pathTarget = e.path[0], angle = Math.atan2(pathTarget.y - e.y, pathTarget.x - e.x);
                         moveX = Math.cos(angle) * e.speed * dt; moveY = Math.sin(angle) * e.speed * dt;
                         if (Math.hypot(pathTarget.y - e.y, pathTarget.x - e.x) < TILE_SIZE / 2) e.path.shift();
-                    } else { 
+                    } else if (e.type === ENTITY_TYPES.SHADOW) {
                         e.moveTimer -= dt;
                         if (e.moveTimer <= 0) { e.angle = Math.random() * Math.PI * 2; e.moveTimer = Math.random() * 2 + 1; }
                         moveX = Math.cos(e.angle) * e.speed * 0.5 * dt; moveY = Math.sin(e.angle) * e.speed * 0.5 * dt;
                     }
-                    if (Math.hypot(e.x - target.x, e.y - target.y) < TILE_SIZE) {
-                        const selectedItem = player.inventory[selectedHotbarSlot];
-                        let isStunnedByFlashlight = false;
-                        if (target === player && selectedItem && selectedItem.type === ITEM_TYPES.FLASHLIGHT) {
-                            const flashlightAngle = getFlashlightAngle();
-                            const angleToShadow = Math.atan2(e.y - player.y, e.x - player.x);
-                            let angleDiff = Math.abs(flashlightAngle - angleToShadow);
-                            if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
-                            if (angleDiff < FLASHLIGHT_CONE_ANGLE / 2) isStunnedByFlashlight = true;
-                        }
-
-                        if (!isStunnedByFlashlight) {
-                            if (target === player) player.mentalHealth -= 20 * dt;
-                            else target.health -= 20 * dt;
+                    
+                    if (e.attackCooldown <= 0) {
+                        const distToPlayer = Math.hypot(e.x - player.x, e.y - player.y);
+                        
+                        if (e.isBoss) {
+                            if (e.type === ENTITY_TYPES.ARCHANGEL && distToPlayer < TILE_SIZE * 10) {
+                                const angleToPlayer = Math.atan2(player.y - e.y, player.x - e.x);
+                                const projectileSpeed = 200;
+                                for (let k = -1; k <= 1; k++) {
+                                    const angle = angleToPlayer + (k * Math.PI / 16);
+                                    projectiles.push({ x: e.x, y: e.y, vx: Math.cos(angle) * projectileSpeed, vy: Math.sin(angle) * projectileSpeed, lifetime: 6, damage: e.damage });
+                                }
+                                e.attackCooldown = 3.5;
+                            }
+                            else if (e.type === ENTITY_TYPES.MUTANT_HUMAN && distToPlayer < TILE_SIZE * 2) {
+                                player.mentalHealth -= e.damage * 2;
+                                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                                player.knockback.x = Math.cos(angle) * 500;
+                                player.knockback.y = Math.sin(angle) * 500;
+                                e.attackCooldown = 2.5;
+                            }
+                            else if (e.type === ENTITY_TYPES.DEMON && distToPlayer < TILE_SIZE * 8) {
+                                for (let k = 0; k < 2; k++) {
+                                    const spawnAngle = Math.random() * Math.PI * 2;
+                                    const spawnDist = TILE_SIZE * 1.5;
+                                    spawnEntity(ENTITY_TYPES.SHADOW, e.x + Math.cos(spawnAngle) * spawnDist, e.y + Math.sin(spawnAngle) * spawnDist);
+                                }
+                                showNotification("Демон призывает тени!");
+                                e.attackCooldown = 6;
+                            }
+                        } 
+                        else if (target === player && ((e.type === ENTITY_TYPES.HUMAN && e.aggressive) || e.type === ENTITY_TYPES.SHADOW)) {
+                            if (distToPlayer < TILE_SIZE * 1.5) {
+                                 player.mentalHealth -= e.damage;
+                                 e.attackCooldown = 1.5;
+                            }
                         }
                     }
-                // --- Логика ангела ---
-                } else if (e.type === ENTITY_TYPES.ANGEL) {
+                } else if (e.type === ENTITY_TYPES.ANGEL || e.type === ENTITY_TYPES.FALSE_ANGEL || (e.type === ENTITY_TYPES.HUMAN && !e.aggressive)) {
                     e.moveTimer -= dt;
                     if (e.moveTimer <= 0) { e.angle = Math.random() * Math.PI * 2; e.moveTimer = Math.random() * 3 + 2; }
                     moveX = Math.cos(e.angle) * e.speed * dt; moveY = Math.sin(e.angle) * e.speed * dt;
-                    if (Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS) player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + ANGEL_HEAL_RATE * dt);
-                // --- Логика человека ---
-                } else if (e.type === ENTITY_TYPES.HUMAN) {
-                    if(e.aggressive) {
-                        e.aggressionTimer -= dt;
-                        if (e.aggressionTimer <= 0) {
-                            e.aggressive = false;
-                            e.path = null;
-                            showNotification("Человек успокоился.");
-                        }
-
-                        e.pathUpdateTimer -= dt;
-                        if (e.pathUpdateTimer <= 0) {
-                            e.pathUpdateTimer = 1.0;
-                            e.path = findPath(Math.floor(e.x / TILE_SIZE), Math.floor(e.y / TILE_SIZE), Math.floor(player.x / TILE_SIZE), Math.floor(player.y / TILE_SIZE));
-                        }
-                        if (e.path && e.path.length > 0) {
-                            const target = e.path[0], angle = Math.atan2(target.y - e.y, target.x - e.x);
-                            moveX = Math.cos(angle) * e.speed * dt; moveY = Math.sin(angle) * e.speed * dt;
-                            if (Math.hypot(target.y - e.y, target.x - e.x) < TILE_SIZE / 2) e.path.shift();
-                        }
-                        if (Math.hypot(e.x - player.x, e.y - player.y) < TILE_SIZE * 1.5) { 
-                            player.mentalHealth -= e.damage * dt; 
-                            entities.forEach(otherE => {
-                                if (otherE.type === ENTITY_TYPES.HUMAN && !otherE.aggressive && Math.hypot(e.x - otherE.x, e.y - otherE.y) < TILE_SIZE * 2) {
-                                    otherE.health -= e.damage * 0.25 * dt;
-                                }
-                            });
-                        }
-                    } else { 
-                        e.moveTimer -= dt;
-                        if (e.moveTimer <= 0) { e.angle = Math.random() * Math.PI * 2; e.moveTimer = Math.random() * 3 + 2; }
-                        moveX = Math.cos(e.angle) * e.speed * dt; moveY = Math.sin(e.angle) * e.speed * dt;
-                        if (Math.hypot(e.x - player.x, e.y - player.y) < HUMAN_HEAL_RADIUS) player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + HUMAN_HEAL_RATE * dt);
+                    
+                    if (Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS) {
+                        if (e.type === ENTITY_TYPES.ANGEL) player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + ANGEL_HEAL_RATE * dt);
+                        else if (e.type === ENTITY_TYPES.FALSE_ANGEL) player.mentalHealth -= 30 * dt;
+                    }
+                    if (e.type === ENTITY_TYPES.HUMAN && Math.hypot(e.x - player.x, e.y - player.y) < HUMAN_HEAL_RADIUS) {
+                         player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + HUMAN_HEAL_RATE * dt);
                     }
                 }
             }
@@ -740,37 +1014,63 @@
             const nextX = e.x + moveX, nextY = e.y + moveY;
             if (!isSolid(world[Math.floor(nextX / TILE_SIZE)]?.[Math.floor(nextY / TILE_SIZE)])) { e.x = nextX; e.y = nextY; } 
             else { 
-                if (isKnockedBack) {
-                    e.knockback.x = 0;
-                    e.knockback.y = 0;
-                } else {
-                    e.moveTimer = 0; if (e.path) e.path = null; 
-                }
+                if (isKnockedBack) { e.knockback.x = 0; e.knockback.y = 0; }
+                else { e.moveTimer = 0; if (e.path) e.path = null; }
             } 
             e.x = Math.max(0, Math.min(e.x, WORLD_WIDTH * TILE_SIZE)); e.y = Math.max(0, Math.min(e.y, WORLD_HEIGHT * TILE_SIZE));
         }
     }
     function spawnEntities() {
-        if (entities.filter(e => e.type === ENTITY_TYPES.SHADOW).length < 10 && Math.random() < 0.01) spawnEntity(ENTITY_TYPES.SHADOW);
-        if (entities.filter(e => e.type === ENTITY_TYPES.ANGEL).length < 3 && Math.random() < 0.002) spawnEntity(ENTITY_TYPES.ANGEL);
-        if (entities.filter(e => e.type === ENTITY_TYPES.HUMAN).length < 5 && Math.random() < 0.005) spawnEntity(ENTITY_TYPES.HUMAN);
+        const day = Math.floor(gameTime / DAY_DURATION_SECONDS) + 1;
+
+        if (entities.filter(e => e && e.type === ENTITY_TYPES.SHADOW).length < 10 && Math.random() < 0.01) spawnEntity(ENTITY_TYPES.SHADOW);
+        if (entities.filter(e => e && e.type === ENTITY_TYPES.ANGEL).length < 3 && Math.random() < 0.002) spawnEntity(ENTITY_TYPES.ANGEL);
+        if (entities.filter(e => e && e.type === ENTITY_TYPES.HUMAN).length < 5 && Math.random() < 0.005) spawnEntity(ENTITY_TYPES.HUMAN);
+        if (entities.filter(e => e && e.type === ENTITY_TYPES.FALSE_ANGEL).length < 2 && Math.random() < 0.003) spawnEntity(ENTITY_TYPES.FALSE_ANGEL);
+
+        if (day > 3) {
+            const bossExists = entities.some(e => e && e.isBoss);
+            if (!bossExists && Math.random() < 0.005) {
+                const bossType = [ENTITY_TYPES.MUTANT_HUMAN, ENTITY_TYPES.ARCHANGEL, ENTITY_TYPES.DEMON][Math.floor(Math.random() * 3)];
+                spawnEntity(bossType);
+                showNotification("Вы чувствуете зловещее присутствие...");
+            }
+        }
+    }
+    
+    function spawnTraps() {
+        if (traps.length < 20 && Math.random() < 0.005) {
+            const angle = Math.random() * Math.PI * 2;
+            const radius = Math.max(canvas.width, canvas.height) / 2;
+            const x = player.x + Math.cos(angle) * radius;
+            const y = player.y + Math.sin(angle) * radius;
+
+            const gridX = Math.floor(x / TILE_SIZE), gridY = Math.floor(y / TILE_SIZE);
+            if (gridX >= 0 && gridX < WORLD_WIDTH && gridY >= 0 && gridY < WORLD_HEIGHT && !isSolid(world[gridX][gridY])) {
+                const type = Math.random() < 0.5 ? 'BEAR_TRAP' : 'TRIPWIRE';
+                traps.push({ x, y, type });
+            }
+        }
     }
     function spawnEntity(type, spawnX, spawnY) {
         const angle = Math.random() * Math.PI * 2, radius = Math.max(canvas.width, canvas.height);
         const x = spawnX ?? player.x + Math.cos(angle) * radius;
         const y = spawnY ?? player.y + Math.sin(angle) * radius;
-        const baseEntity = { x, y, health: 100, hitTimer: 0, knockback: { x: 0, y: 0 } };
+        const baseEntity = { x, y, health: 100, hitTimer: 0, knockback: { x: 0, y: 0 }, isBoss: false, path: null, pathUpdateTimer: 0, moveTimer: 0, angle: 0, attackCooldown: 0 };
 
-        if (type === ENTITY_TYPES.SHADOW) entities.push({ ...baseEntity, type, speed: 60, health: 10, path: null, pathUpdateTimer: 0, moveTimer: 0, angle: 0 });
-        else if (type === ENTITY_TYPES.ANGEL) entities.push({ ...baseEntity, type, speed: 30, health: 20, moveTimer: 0, angle: 0 });
+        if (type === ENTITY_TYPES.SHADOW) entities.push({ ...baseEntity, type, speed: 60, health: 10, damage: 25 });
+        else if (type === ENTITY_TYPES.ANGEL) entities.push({ ...baseEntity, type, speed: 30, health: 20 });
+        else if (type === ENTITY_TYPES.FALSE_ANGEL) entities.push({ ...baseEntity, type, speed: 40, health: 50 });
         else if (type === ENTITY_TYPES.HUMAN) {
             const isAngry = (spawnX !== undefined) ? Math.random() < 0.5 : Math.random() < 0.3;
-            entities.push({ ...baseEntity, type, speed: isAngry ? 75 : 50, health: 100, moveTimer: 0, angle: 0, 
+            entities.push({ ...baseEntity, type, speed: isAngry ? 75 : 50, health: 100, 
                 aggressive: isAngry, 
                 aggressionTimer: isAngry ? 30 : 0,
-                damage: isAngry ? 30 : 15, 
-                path: null, pathUpdateTimer: 0 });
+                damage: isAngry ? 45 : 10 });
         }
+        else if (type === ENTITY_TYPES.MUTANT_HUMAN) entities.push({ ...baseEntity, isBoss: true, type, speed: 80, health: 500, damage: 40, aggressive: true, attackCooldown: 2 });
+        else if (type === ENTITY_TYPES.ARCHANGEL) entities.push({ ...baseEntity, isBoss: true, type, speed: 60, health: 400, damage: 15, aggressive: true, attackCooldown: 3.5 });
+        else if (type === ENTITY_TYPES.DEMON) entities.push({ ...baseEntity, isBoss: true, type, speed: 90, health: 666, damage: 25, aggressive: true, attackCooldown: 6 });
     }
     
     // --- Отрисовка ---
@@ -796,70 +1096,69 @@
             else if (tile === TILE_TYPES.STONE_BLOCK) drawPixelArt(dX, dY, TILE_SIZE, art.stone_block);
         }
         
+        projectiles.forEach(p => {
+            const dX = p.x - camera.x - TILE_SIZE / 4;
+            const dY = p.y - camera.y - TILE_SIZE / 4;
+            drawPixelArt(dX, dY, TILE_SIZE / 2, art.archangel_orb);
+        });
+
         placedObjects.forEach(obj => {
             if (obj.type === 'CAMPFIRE') {
-                const dX = obj.x - camera.x;
-                const dY = obj.y - camera.y;
-                
+                const dX = obj.x - camera.x, dY = obj.y - camera.y;
                 const gradient = ctx.createRadialGradient(dX, dY, TILE_SIZE * 0.5, dX, dY, CAMPFIRE_LIGHT_RADIUS);
-                gradient.addColorStop(0, 'rgba(255, 180, 50, 0.25)');
-                gradient.addColorStop(1, 'rgba(255, 180, 50, 0)');
-                ctx.fillStyle = gradient;
-                ctx.beginPath();
-                ctx.arc(dX, dY, CAMPFIRE_LIGHT_RADIUS, 0, Math.PI * 2);
-                ctx.fill();
-
+                gradient.addColorStop(0, 'rgba(255, 180, 50, 0.25)'); gradient.addColorStop(1, 'rgba(255, 180, 50, 0)');
+                ctx.fillStyle = gradient; ctx.beginPath(); ctx.arc(dX, dY, CAMPFIRE_LIGHT_RADIUS, 0, Math.PI * 2); ctx.fill();
                 drawPixelArt(dX - TILE_SIZE/2, dY - TILE_SIZE/2, TILE_SIZE, art.campfire);
             }
         });
 
         entities.forEach(e => {
+            if (!e) return;
             const dX = e.x - camera.x, dY = e.y - camera.y;
+            const size = e.isBoss ? TILE_SIZE * 2.5 : TILE_SIZE;
             
-            // Отрисовка сущности
-            if (e.type === ENTITY_TYPES.SHADOW) drawPixelArt(dX - TILE_SIZE / 2, dY - TILE_SIZE / 2, TILE_SIZE, art.shadow(Math.random() > 0.5));
-            else if (e.type === ENTITY_TYPES.ANGEL) {
-                ctx.beginPath(); ctx.arc(dX, dY, ANGEL_HEAL_RADIUS, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.05)'; ctx.fill();
-                drawPixelArt(dX - TILE_SIZE / 2, dY - TILE_SIZE / 2, TILE_SIZE, art.angel(Math.random() > 0.5));
-            } else if (e.type === ENTITY_TYPES.HUMAN) {
-                 if (!e.aggressive) {
-                    ctx.beginPath(); ctx.arc(dX, dY, HUMAN_HEAL_RADIUS, 0, Math.PI * 2);
-                    ctx.fillStyle = 'rgba(144, 238, 144, 0.05)'; ctx.fill();
-                 } else {
-                    ctx.beginPath(); ctx.arc(dX, dY, TILE_SIZE * 1.5, 0, Math.PI * 2);
-                    ctx.fillStyle = 'rgba(255, 0, 0, 0.1)'; ctx.fill();
-                 }
+            if (e.type === ENTITY_TYPES.SHADOW) drawPixelArt(dX - size / 2, dY - size / 2, size, art.shadow(Math.random() > 0.5));
+            else if (e.type === ENTITY_TYPES.ANGEL) { ctx.beginPath(); ctx.arc(dX, dY, ANGEL_HEAL_RADIUS, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255, 255, 255, 0.05)'; ctx.fill(); drawPixelArt(dX - TILE_SIZE / 2, dY - TILE_SIZE / 2, TILE_SIZE, art.angel(Math.random() > 0.5)); }
+            else if (e.type === ENTITY_TYPES.FALSE_ANGEL) { ctx.beginPath(); ctx.arc(dX, dY, ANGEL_HEAL_RADIUS, 0, Math.PI * 2); ctx.fillStyle = 'rgba(128, 128, 128, 0.1)'; ctx.fill(); drawPixelArt(dX - TILE_SIZE / 2, dY - TILE_SIZE / 2, TILE_SIZE, art.false_angel(Math.random() > 0.5)); }
+            else if (e.type === ENTITY_TYPES.HUMAN) {
+                 if (!e.aggressive) { ctx.beginPath(); ctx.arc(dX, dY, HUMAN_HEAL_RADIUS, 0, Math.PI * 2); ctx.fillStyle = 'rgba(144, 238, 144, 0.05)'; ctx.fill(); } 
+                 else { ctx.beginPath(); ctx.arc(dX, dY, TILE_SIZE * 1.5, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255, 0, 0, 0.1)'; ctx.fill(); }
                  drawPixelArt(dX - TILE_SIZE / 2, dY - TILE_SIZE / 2, TILE_SIZE, art.human);
             }
-            // Отрисовка красного эффекта при ударе
+            else if (e.type === ENTITY_TYPES.MUTANT_HUMAN) drawPixelArt(dX - size / 2, dY - size / 2, size, art.mutant_human);
+            else if (e.type === ENTITY_TYPES.ARCHANGEL) drawPixelArt(dX - size / 2, dY - size / 2, size, art.archangel);
+            else if (e.type === ENTITY_TYPES.DEMON) drawPixelArt(dX - size / 2, dY - size / 2, size, art.demon);
+
             if (e.hitTimer > 0) {
                 ctx.fillStyle = 'rgba(255, 50, 50, 0.6)';
-                ctx.fillRect(dX - TILE_SIZE / 2, dY - TILE_SIZE / 2, TILE_SIZE, TILE_SIZE);
+                ctx.fillRect(dX - size / 2, dY - size / 2, size, size);
             }
         });
+        
+        if(player.stunTimer > 0) {
+            ctx.fillStyle = "rgba(255, 255, 100, 0.3)";
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, canvas.height / 2, TILE_SIZE, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
         drawPixelArt(canvas.width/2 - TILE_SIZE/2, canvas.height/2 - TILE_SIZE/2, TILE_SIZE, art.player);
         
         const selectedItem = player.inventory[selectedHotbarSlot];
         
         if (selectedItem && selectedItem.type === ITEM_TYPES.FLASHLIGHT && gameState === 'playing') {
             const angle = getFlashlightAngle();
-            const pX = canvas.width / 2;
-            const pY = canvas.height / 2;
-
+            const pX = canvas.width / 2, pY = canvas.height / 2;
             ctx.fillStyle = 'rgba(255, 255, 220, 0.15)';
-            ctx.beginPath();
-            ctx.moveTo(pX, pY);
+            ctx.beginPath(); ctx.moveTo(pX, pY);
             ctx.arc(pX, pY, FLASHLIGHT_RANGE, angle - FLASHLIGHT_CONE_ANGLE / 2, angle + FLASHLIGHT_CONE_ANGLE / 2);
-            ctx.lineTo(pX, pY);
-            ctx.fill();
+            ctx.lineTo(pX, pY); ctx.fill();
         }
 
         if (selectedItem && gameState === 'playing') {
             let artKey = Object.keys(ITEM_TYPES).find(key => ITEM_TYPES[key].id === selectedItem.type.id)?.toLowerCase();
             if (selectedItem.type.id === 'WOOD') artKey = 'wood_block';
             if (selectedItem.type.id === 'STONE') artKey = 'stone_block';
-            
             if (art[artKey]) {
                 const itemSize = TILE_SIZE * 0.7;
                 const itemX = canvas.width / 2 + TILE_SIZE * 0.1;
@@ -932,12 +1231,12 @@
         return slot;
     }
     function toggleInventory() {
-        if (gameState === 'game_over') return;
+        if (gameState === 'game_over' || handbookScreen.style.display === 'flex') return;
         const isOpening = gameState !== 'paused';
         gameState = isOpening ? 'paused' : 'playing';
         inventoryScreen.style.display = isOpening ? 'flex' : 'none';
         if (isOpening) {
-            selectedRecipe = null; // Сбрасываем выбор при открытии
+            selectedRecipe = null;
             updateInventoryScreen();
         }
     }
@@ -958,13 +1257,12 @@
             li.classList.toggle('un-craftable', !canCraft);
             li.classList.toggle('selected', selectedRecipe === recipe);
             li.addEventListener('click', () => { 
-                // Позволяем переключать и отменять выбор рецепта
                 if (selectedRecipe === recipe) {
                     selectedRecipe = null;
                 } else {
                     selectedRecipe = recipe;
                 }
-                updateRecipeList(); // Перерисовываем список, чтобы обновить выделение
+                updateRecipeList();
             });
             recipeList.appendChild(li);
         });
@@ -1025,15 +1323,15 @@
                 item.count -= toRemove;
                 count -= toRemove;
                 if (item.count <= 0) player.inventory[i] = null;
-                if (count <= 0) return true; // Успешно удалено
+                if (count <= 0) return true;
             }
         }
-        return false; // Не удалось удалить нужное количество
+        return false;
     }
     
     // --- Взаимодействие ---
     function handleInteraction(clientX, clientY) {
-        if (gameState !== 'playing' || player.attackCooldown > 0) return;
+        if (gameState !== 'playing' || player.attackCooldown > 0 || player.stunTimer > 0) return;
         if (isTouchDevice()) {
             const joyRect = joystickContainer.getBoundingClientRect();
             if (clientX >= joyRect.left && clientX <= joyRect.right && clientY >= joyRect.top && clientY <= joyRect.bottom) return;
@@ -1045,29 +1343,23 @@
         const selectedItem = player.inventory[selectedHotbarSlot];
 
         if (selectedItem) {
-            if (selectedItem.type === ITEM_TYPES.MENTAL_SALVE) {
-                player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + 50);
-                removeItemFromInventory(ITEM_TYPES.MENTAL_SALVE, 1);
-                player.attackCooldown = 0.5; return;
-            }
+            if (selectedItem.type === ITEM_TYPES.MENTAL_SALVE) { player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + 50); removeItemFromInventory(ITEM_TYPES.MENTAL_SALVE, 1); player.attackCooldown = 0.5; return; }
             if (selectedItem.type === ITEM_TYPES.DESPAIR_CRYSTAL) {
                 let nearestAngel = null, minDist = Infinity;
                 entities.forEach(e => {
-                    if (e.type === ENTITY_TYPES.ANGEL) {
+                    if (e && e.type === ENTITY_TYPES.ANGEL) {
                         const dist = Math.hypot(player.x - e.x, player.y - e.y);
                         if (dist < minDist) { minDist = dist; nearestAngel = e; }
                     }
                 });
-                if (nearestAngel) {
-                    player.x = nearestAngel.x; player.y = nearestAngel.y;
-                    removeItemFromInventory(ITEM_TYPES.DESPAIR_CRYSTAL, 1);
-                } else { showNotification("Поблизости нет ангелов, чтобы услышать твой зов."); }
+                if (nearestAngel) { player.x = nearestAngel.x; player.y = nearestAngel.y; removeItemFromInventory(ITEM_TYPES.DESPAIR_CRYSTAL, 1); } 
+                else { showNotification("Поблизости нет ангелов, чтобы услышать твой зов."); }
                 player.attackCooldown = 1; return;
             }
             if (selectedItem.type === ITEM_TYPES.SLEEPING_BAG) {
                 const currentDay = Math.floor(gameTime / DAY_DURATION_SECONDS);
                 const nextDayStart = (currentDay + 1) * DAY_DURATION_SECONDS;
-                const randomHourFraction = (6 + Math.random() * 3) / 24; // от 6:00 до 9:00
+                const randomHourFraction = (6 + Math.random() * 3) / 24;
                 gameTime = nextDayStart + DAY_DURATION_SECONDS * randomHourFraction;
                 
                 player.mentalHealth = player.maxMentalHealth;
@@ -1083,48 +1375,32 @@
                 }
                 player.attackCooldown = 1; return;
             }
-            if (selectedItem.type === ITEM_TYPES.SAKURA_PETAL) {
-                spawnEntity(ENTITY_TYPES.HUMAN, player.x, player.y + TILE_SIZE * 1.5);
-                removeItemFromInventory(ITEM_TYPES.SAKURA_PETAL, 1);
-                player.attackCooldown = 0.5; return;
-            }
+            if (selectedItem.type === ITEM_TYPES.SAKURA_PETAL) { spawnEntity(ENTITY_TYPES.HUMAN, player.x, player.y + TILE_SIZE * 1.5); removeItemFromInventory(ITEM_TYPES.SAKURA_PETAL, 1); player.attackCooldown = 0.5; return; }
         }
 
         let didAttack = false;
-        if (selectedItem && selectedItem.type.id.includes('SWORD')) {
-            const isStone = selectedItem.type.id === 'STONE_SWORD';
-            const swordDamage = isStone ? 5 : 3;
-            const knockbackForce = isStone ? 300 : 250;
+        const toolType = selectedItem?.type.id;
+        if (toolType && toolType.includes('SWORD')) {
+            let swordDamage = 3, knockbackForce = 250, range = TILE_SIZE * 1.2;
+            if(toolType === 'STONE_SWORD') { swordDamage = 5; knockbackForce = 300; }
+            if(toolType === 'FIRE_SWORD') { swordDamage = 25; knockbackForce = 400; range = TILE_SIZE * 1.5; }
             
             entities.forEach(e => { 
-                if (Math.hypot(e.x - mouseX, e.y - mouseY) < TILE_SIZE * 1.2) {
-                    let wasHit = false;
-                    if (e.type === ENTITY_TYPES.SHADOW || e.type === ENTITY_TYPES.HUMAN) {
-                         wasHit = true;
-                         e.health -= swordDamage;
-                         if (e.type === ENTITY_TYPES.HUMAN) {
-                             e.aggressive = true;
-                             e.aggressionTimer = 30; // 30 секунд агрессии
-                         }
-                         if (e.health <= 0) {
-                            if (e.type === ENTITY_TYPES.SHADOW) addItemToInventory(ITEM_TYPES.DARK_ORB, 1);
-                            else if (e.type === ENTITY_TYPES.HUMAN) {
-                                if (Math.random() < 0.5) addItemToInventory(ITEM_TYPES.DARK_ORB, 1);
-                                else addItemToInventory(ITEM_TYPES.MENTAL_SALVE, 1);
-                            }
-                         }
-                    } else if (e.type === ENTITY_TYPES.ANGEL) {
-                        wasHit = true;
-                        player.mentalHealth *= 0.5; 
-                        e.health -= swordDamage;
-                    }
+                 if (!e) return;
+                if (Math.hypot(e.x - mouseX, e.y - mouseY) < range) {
+                    e.health -= swordDamage;
+                    if (e.type === ENTITY_TYPES.HUMAN && !e.isBoss) { e.aggressive = true; e.aggressionTimer = 30; } 
+                    else if (e.type === ENTITY_TYPES.ANGEL) { player.mentalHealth *= 0.5; }
+                    
+                    e.hitTimer = 0.2;
+                    const angle = Math.atan2(e.y - player.y, e.x - player.x);
+                    e.knockback.x = Math.cos(angle) * knockbackForce;
+                    e.knockback.y = Math.sin(angle) * knockbackForce;
+                    didAttack = true;
 
-                    if (wasHit) {
-                        e.hitTimer = 0.2; // 0.2 секунды красного свечения
-                        const angle = Math.atan2(e.y - player.y, e.x - player.x);
-                        e.knockback.x = Math.cos(angle) * knockbackForce;
-                        e.knockback.y = Math.sin(angle) * knockbackForce;
-                        didAttack = true;
+                    if (e.health <= 0) {
+                        if (e.type === ENTITY_TYPES.SHADOW) addItemToInventory(ITEM_TYPES.DARK_ORB, 1);
+                        else if (e.type === ENTITY_TYPES.HUMAN && !e.isBoss) addItemToInventory(ITEM_TYPES.MENTAL_SALVE, 1);
                     }
                 }
             });
@@ -1134,53 +1410,117 @@
         if (gridX < 0 || gridY < 0 || gridX >= WORLD_WIDTH || gridY >= WORLD_HEIGHT) return;
         const tile = world[gridX][gridY];
 
+        const yieldMultiplier = 5;
+        if (selectedItem && selectedItem.type === ITEM_TYPES.FIRE_AXE && (tile === TILE_TYPES.TREE || tile === TILE_TYPES.BIRCH || tile === TILE_TYPES.OAK || tile === TILE_TYPES.SAKURA)) {
+            for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
+                const nX = gridX + i, nY = gridY + j;
+                if (nX >= 0 && nX < WORLD_WIDTH && nY >= 0 && nY < WORLD_HEIGHT) {
+                    const nearTile = world[nX][nY];
+                    if (nearTile === TILE_TYPES.TREE) { world[nX][nY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.WOOD, 1 * yieldMultiplier); }
+                    else if (nearTile === TILE_TYPES.BIRCH) { world[nX][nY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.WOOD, 2 * yieldMultiplier); }
+                    else if (nearTile === TILE_TYPES.OAK) { world[nX][nY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.WOOD, 1 * yieldMultiplier); if (Math.random() < 0.5) addItemToInventory(ITEM_TYPES.ACORN, 1 * yieldMultiplier); } 
+                    else if (nearTile === TILE_TYPES.SAKURA) { world[nX][nY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.WOOD, 1 * yieldMultiplier); addItemToInventory(ITEM_TYPES.SAKURA_PETAL, 1 * yieldMultiplier); }
+                }
+            }
+            player.attackCooldown = 1.5; return;
+        }
+        if (selectedItem && selectedItem.type === ITEM_TYPES.FIRE_PICKAXE && tile === TILE_TYPES.ROCK) {
+            world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.STONE, 1 * yieldMultiplier); player.attackCooldown = 0.5; return;
+        }
+
         if (isPlayerPlaced(tile)) { 
             if (tile === TILE_TYPES.WOOD_BLOCK) addItemToInventory(ITEM_TYPES.WOOD, 1);
             else if (tile === TILE_TYPES.STONE_BLOCK) addItemToInventory(ITEM_TYPES.STONE, 1);
             world[gridX][gridY] = TILE_TYPES.EMPTY; return;
         }
-        
         if (!selectedItem) return;
         const toolPower = selectedItem.type.id.includes('STONE') ? 2 : 1;
-        if (tile === TILE_TYPES.TREE && selectedItem.type.id.includes('AXE')) { world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower); } 
-        else if (tile === TILE_TYPES.BIRCH && selectedItem.type.id.includes('AXE')) { world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.WOOD, 2 * toolPower); } 
-        else if (tile === TILE_TYPES.OAK && selectedItem.type.id.includes('AXE')) {
-            world[gridX][gridY] = TILE_TYPES.EMPTY;
-            addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower);
-            if (Math.random() < 0.5) addItemToInventory(ITEM_TYPES.ACORN, 1);
-        }
-        else if (tile === TILE_TYPES.SAKURA && selectedItem.type.id.includes('AXE')) { 
-            world[gridX][gridY] = TILE_TYPES.EMPTY; 
-            addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower);
-            addItemToInventory(ITEM_TYPES.SAKURA_PETAL, 1 * toolPower);
-        }
-        else if (tile === TILE_TYPES.ROCK && selectedItem.type.id.includes('PICKAXE')) { world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.STONE, 1 * toolPower); } 
+        if (tile === TILE_TYPES.TREE && toolType.includes('AXE')) { world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower); } 
+        else if (tile === TILE_TYPES.BIRCH && toolType.includes('AXE')) { world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.WOOD, 2 * toolPower); } 
+        else if (tile === TILE_TYPES.OAK && toolType.includes('AXE')) { world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower); if (Math.random() < 0.5) addItemToInventory(ITEM_TYPES.ACORN, 1); }
+        else if (tile === TILE_TYPES.SAKURA && toolType.includes('AXE')) { world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower); addItemToInventory(ITEM_TYPES.SAKURA_PETAL, 1 * toolPower); }
+        else if (tile === TILE_TYPES.ROCK && toolType.includes('PICKAXE')) { world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.STONE, 1 * toolPower); } 
         else if (tile === TILE_TYPES.EMPTY) {
             if (selectedItem.type === ITEM_TYPES.WOOD && countItems(ITEM_TYPES.WOOD) > 0) { world[gridX][gridY] = TILE_TYPES.WOOD_BLOCK; removeItemFromInventory(ITEM_TYPES.WOOD, 1); } 
             else if (selectedItem.type === ITEM_TYPES.STONE && countItems(ITEM_TYPES.STONE) > 0) { world[gridX][gridY] = TILE_TYPES.STONE_BLOCK; removeItemFromInventory(ITEM_TYPES.STONE, 1); }
             else if (selectedItem.type === ITEM_TYPES.CAMPFIRE && countItems(ITEM_TYPES.CAMPFIRE) > 0) {
-                placedObjects.push({
-                    type: 'CAMPFIRE',
-                    x: gridX * TILE_SIZE + TILE_SIZE / 2, // центр тайла
-                    y: gridY * TILE_SIZE + TILE_SIZE / 2,
-                    duration: CAMPFIRE_DURATION
-                });
+                placedObjects.push({ type: 'CAMPFIRE', x: gridX * TILE_SIZE + TILE_SIZE/2, y: gridY * TILE_SIZE + TILE_SIZE/2, duration: CAMPFIRE_DURATION });
                 removeItemFromInventory(ITEM_TYPES.CAMPFIRE, 1);
             }
         }
     }
+    
+    // --- Управление и UI ---
+    
+    function toggleHandbook() {
+        if (gameState === 'game_over' || inventoryScreen.style.display === 'flex') return;
+        const isOpening = handbookScreen.style.display === 'none';
+        if (isOpening) {
+            gameState = 'paused';
+            handbookScreen.style.display = 'flex';
+            populateHandbook(Object.keys(HANDBOOK_DATA)[0]);
+        } else {
+            gameState = 'playing';
+            handbookScreen.style.display = 'none';
+        }
+    }
 
-    // --- Управление ---
+    function populateHandbook(activeCategory) {
+        const tabsContainer = document.getElementById('handbook-tabs');
+        const contentContainer = document.getElementById('handbook-content');
+        tabsContainer.innerHTML = '';
+        contentContainer.innerHTML = '';
+
+        Object.keys(HANDBOOK_DATA).forEach(category => {
+            const tab = document.createElement('div');
+            tab.className = 'handbook-tab';
+            tab.textContent = category;
+            if (category === activeCategory) {
+                tab.classList.add('active');
+            }
+            tab.addEventListener('click', () => populateHandbook(category));
+            tabsContainer.appendChild(tab);
+        });
+
+        const categoryData = HANDBOOK_DATA[activeCategory];
+        for (const itemName in categoryData) {
+            const itemData = categoryData[itemName];
+            const entry = document.createElement('div');
+            entry.className = 'handbook-entry';
+
+            const iconCanvas = document.createElement('canvas');
+            iconCanvas.width = iconCanvas.height = 48;
+            iconCanvas.className = 'handbook-entry-icon';
+            const iconCtx = iconCanvas.getContext('2d');
+            iconCtx.imageSmoothingEnabled = false;
+            drawPixelArtOnCtx(iconCtx, 0, 0, 48, itemData.art);
+
+            const textDiv = document.createElement('div');
+            textDiv.className = 'handbook-entry-text';
+            textDiv.innerHTML = `<h3>${itemName}</h3><p>${itemData.description}</p>`;
+            
+            entry.appendChild(iconCanvas);
+            entry.appendChild(textDiv);
+            contentContainer.appendChild(entry);
+        }
+    }
+
     window.addEventListener('resize', resizeCanvas);
     window.addEventListener('keydown', (e) => {
         if (gameState === 'start' || gameState === 'game_over') return;
         const key = e.key.toLowerCase();
+        
+        if (key === 'escape') {
+            if (inventoryScreen.style.display === 'flex') toggleInventory();
+            if (handbookScreen.style.display === 'flex') toggleHandbook();
+            return;
+        }
+
+        if (gameState === 'paused') return;
+
         keys[key] = true;
         if (key >= '1' && key <= '5') selectedHotbarSlot = parseInt(key) - 1;
         if (key === 'e' || key === 'i') {
-            toggleInventory();
-        }
-        if (key === 'escape' && gameState === 'paused') {
             toggleInventory();
         }
     });
@@ -1196,6 +1536,8 @@
     restartButton.addEventListener('click', () => { initGame(); });
     prequelButton.addEventListener('click', () => { startScreen.style.display = 'none'; prequelScreen.style.display = 'flex'; });
     backFromPrequelButton.addEventListener('click', () => { prequelScreen.style.display = 'none'; startScreen.style.display = 'flex'; });
+    handbookButton.addEventListener('click', toggleHandbook);
+    handbookCloseButton.addEventListener('click', toggleHandbook);
 
     inventoryScreen.addEventListener('click', (e) => {
         if (e.target === inventoryScreen) { 
@@ -1206,7 +1548,6 @@
     const inventoryButtonMobile = document.getElementById('inventory-button-mobile');
     inventoryButtonMobile.addEventListener('click', toggleInventory);
 
-    // --- Drag and Drop инвентаря ---
     let draggedItemIndex = null;
     
     function handleDragStart(e) {
@@ -1227,12 +1568,10 @@
         const targetSlot = e.target.closest('.hotbar-slot, .inventory-slot');
         if (targetSlot && draggedItemIndex !== null) {
             const droppedOnIndex = parseInt(targetSlot.dataset.slotIndex);
-            
             const temp = player.inventory[draggedItemIndex];
             player.inventory[draggedItemIndex] = player.inventory[droppedOnIndex];
             player.inventory[droppedOnIndex] = temp;
-            
-            if (gameState === 'paused') updateInventoryScreen();
+            if (gameState === 'paused' && inventoryScreen.style.display === 'flex') updateInventoryScreen();
             updateUI();
         }
     }
@@ -1250,8 +1589,6 @@
     setupDragListeners(document.getElementById('inventory-screen'));
     setupDragListeners(document.getElementById('hotbar'));
 
-
-    // --- Джойстик ---
     function isTouchDevice() { return 'ontouchstart' in window || navigator.maxTouchPoints > 0; }
     if (isTouchDevice()) {
         joystickContainer.style.display = 'block';
@@ -1272,13 +1609,13 @@
             else { joystick.dx = 0; joystick.dy = 0;}
         }, { passive: false });
         window.addEventListener('touchend', (e) => {
-            let joyTouchEnded = true; // Assume true unless a touch is still active on the joystick
+            let joyTouchEnded = true; 
             for(let i = 0; i < e.touches.length; i++) {
                  const touch = e.touches[i];
                  const rect = joystickContainer.getBoundingClientRect();
                  if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
                     touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
-                     joyTouchEnded = false; // A finger is still on the joystick, don't deactivate
+                     joyTouchEnded = false;
                      break;
                  }
             }
