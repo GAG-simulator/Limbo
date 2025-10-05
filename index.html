@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>LIMBO</title>
+    <style>
+        :root {
+            --ui-bg: rgba(20, 20, 20, 0.75);
+            --border-color: rgba(120, 120, 120, 0.5);
+            --highlight-color: #fff;
+            --un-craftable-color: #ff5555;
+            --slot-bg: #2c2c2c;
+            --slot-size: clamp(40px, 10vw, 60px);
+            --ui-padding: clamp(10px, 3vw, 20px);
+            --ui-radius: 10px;
+        }
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            image-rendering: pixelated;
+        }
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background-color: #111;
+            cursor: crosshair;
+            transition: filter 1s linear;
+        }
+
+        /* --- UI Поверх игры --- */
+        #top-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: var(--ui-padding);
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 20px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        .game-ui-element {
+            background-color: var(--ui-bg);
+            backdrop-filter: blur(8px);
+            border-radius: var(--ui-radius);
+            border: 2px solid var(--border-color);
+            padding: 8px 12px;
+            box-sizing: border-box;
+            pointer-events: auto;
+        }
+        #mental-health-bar-container {
+            flex-grow: 1;
+            max-width: 350px;
+            padding: 6px;
+        }
+        #mental-health-bar {
+            width: 100%;
+            height: 16px;
+            background-color: var(--highlight-color);
+            transition: width 0.5s;
+            border-radius: 5px;
+        }
+        #clock-container {
+            text-align: center;
+            font-size: clamp(14px, 4vw, 16px);
+            flex-shrink: 0; /* Prevent shrinking */
+        }
+
+        #bottom-ui {
+            position: absolute;
+            bottom: var(--ui-padding);
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            gap: 10px;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #hotbar {
+            display: flex;
+            gap: 8px;
+            background-color: var(--ui-bg);
+            backdrop-filter: blur(8px);
+            padding: 8px;
+            border-radius: var(--ui-radius);
+            border: 2px solid var(--border-color);
+            pointer-events: auto;
+        }
+        .hotbar-slot {
+            width: var(--slot-size);
+            height: var(--slot-size);
+            border: 2px solid var(--border-color);
+            background-color: var(--slot-bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            user-select: none;
+            border-radius: 5px;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .hotbar-slot.selected {
+            border-color: var(--highlight-color);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+            transform: scale(1.1);
+        }
+        .item-icon {
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Make sure events go to the slot */
+        }
+        .item-count {
+            position: absolute;
+            bottom: 2px;
+            right: 4px;
+            font-size: clamp(12px, 3vw, 16px);
+            font-weight: bold;
+            text-shadow: 2px 2px 3px black;
+            pointer-events: none;
+        }
+        .dragging {
+            opacity: 0.5;
+        }
+        
+        /* --- Экраны --- */
+        .screen-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0,0,0,0.85);
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            z-index: 100;
+        }
+        .screen-overlay h1 { font-size: clamp(32px, 10vw, 48px); }
+        .screen-overlay p { max-width: 600px; line-height: 1.5; padding: 0 20px; font-size: clamp(14px, 4vw, 16px); }
+        .screen-overlay button {
+            background: var(--slot-bg); color: #fff; border: 2px solid var(--border-color); padding: 12px 24px;
+            font-family: inherit; font-size: clamp(16px, 5vw, 18px); cursor: pointer; margin-top: 20px; border-radius: var(--ui-radius);
+        }
+        .screen-overlay button:hover { border-color: var(--highlight-color); background-color: #333; }
+
+        /* --- Инвентарь и Крафт --- */
+        #inventory-screen {
+            flex-direction: row;
+            flex-wrap: nowrap; /* Prevent wrapping */
+            gap: 20px;
+            padding: var(--ui-padding);
+            align-items: stretch; /* Make panels same height */
+            justify-content: center;
+            z-index: 200; /* Поднимаем выше джойстика */
+        }
+        .inventory-panel {
+            background: rgba(26, 26, 26, 0.9);
+            border: 2px solid var(--border-color);
+            border-radius: var(--ui-radius);
+            padding: 15px;
+            max-height: calc(100vh - 2 * var(--ui-padding));
+            display: flex;
+            flex-direction: column;
+            width: clamp(280px, 40vw, 400px);
+            max-width: 90vw;
+            box-sizing: border-box;
+        }
+        
+        #crafting-panel h2, #inventory-panel h2 {
+            margin-top: 0; text-align: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;
+        }
+
+        #recipe-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-shrink: 1; }
+        #recipe-list li {
+            padding: 10px; border-bottom: 1px solid #333; cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+            border-radius: 5px;
+        }
+        #recipe-list li:hover { background-color: #333; }
+        #recipe-list li.selected { background-color: #444; }
+        #recipe-list li.un-craftable {
+            color: #aaa;
+            cursor: not-allowed;
+        }
+        #recipe-list li.un-craftable:hover {
+            background-color: transparent;
+        }
+        #crafting-details ul li.needed-bad {
+             color: var(--un-craftable-color) !important;
+        }
+        
+        #crafting-details { margin-top: 15px; text-align: center; }
+        #craft-button { width: 100%; margin-top: auto; padding: 12px;}
+        #craft-button:disabled { background: #111; color: #555; border-color: #333; cursor: not-allowed;}
+        
+        #inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(var(--slot-size), 1fr));
+            gap: 8px;
+            overflow-y: auto;
+        }
+        
+        /* Адаптивность для мобильных */
+        @media (max-width: 768px) and (orientation: portrait), (max-height: 500px) {
+            #inventory-screen {
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+            }
+            .inventory-panel {
+                max-height: calc(50vh - 1.5 * var(--ui-padding));
+                width: 90vw;
+            }
+        }
+
+
+        /* --- Джойстик и мобильные кнопки --- */
+        #joystick-container {
+            position: absolute;
+            /* Поднимаем джойстик над хотбаром */
+            bottom: calc(var(--ui-padding) + var(--slot-size) + 20px);
+            left: var(--ui-padding);
+            /* Уменьшаем размер джойстика */
+            width: clamp(100px, 20vw, 120px);
+            height: clamp(100px, 20vw, 120px);
+            background-color: rgba(80, 80, 80, 0.3);
+            border-radius: 50%;
+            display: none;
+            z-index: 50;
+        }
+        #joystick-handle {
+            position: absolute; width: 45%; height: 45%;
+            background-color: rgba(200, 200, 200, 0.5); border-radius: 50%;
+            left: 27.5%; top: 27.5%;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+
+        .mobile-ui-button {
+            width: var(--slot-size);
+            height: var(--slot-size);
+            border: 2px solid var(--border-color);
+            background-color: var(--ui-bg);
+            display: none; /* Hide by default */
+            justify-content: center;
+            align-items: center;
+            border-radius: var(--ui-radius);
+            pointer-events: auto;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+        }
+        .mobile-ui-button:active { transform: scale(0.95); }
+        .mobile-ui-button svg {
+            width: 70%; height: 70%; fill: #fff;
+        }
+        
+        /* --- Уведомления --- */
+        #notification-container {
+            position: absolute;
+            top: calc(var(--ui-padding) * 2 + 50px);
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            z-index: 250;
+            pointer-events: none;
+        }
+        .notification-message {
+            background-color: var(--ui-bg);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: var(--ui-radius);
+            border: 1px solid var(--border-color);
+            animation: fadeOut 5s forwards;
+            opacity: 1;
+            font-size: clamp(12px, 3vw, 14px);
+        }
+        @keyframes fadeOut {
+            0% { opacity: 1; transform: translateY(0); }
+            80% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="start-screen" class="screen-overlay">
+        <h1>Тень и Свет</h1>
+        <p>Используйте E или I, чтобы открыть инвентарь и меню крафта.</p>
+        <button id="prequel-button">Предыстория</button>
+        <button id="start-button">Начать выживание</button>
+    </div>
+    
+    <div id="prequel-screen" class="screen-overlay" style="display: none;">
+        <h1>Предыстория</h1>
+        <p style="max-width: 600px; text-align: center;">ТЫ ЧЕЛОВЕК, КОТОРЫЙ НЕ ПОПАЛ НИ В РАЙ, НИ В АД И ОСТАЛСЯ В ЛИМБО СКИТАТЬСЯ ВЕЧНОСТЬ... или пока тебя не настигнет что-то хуже смерти.</p>
+        <button id="back-from-prequel-button">Назад</button>
+    </div>
+
+    <div id="game-over-screen" class="screen-overlay" style="display: none;">
+        <h1>Вы не можете умереть, но рассудок покинул вас и вы стали очередной тенью в этом месте</h1>
+        <button id="restart-button">Попробовать снова</button>
+    </div>
+
+    <div id="inventory-screen" class="screen-overlay" style="display: none;">
+        <div id="crafting-panel" class="inventory-panel">
+            <h2>Крафт</h2>
+            <ul id="recipe-list"></ul>
+            <div id="crafting-details">
+                <p>Выберите рецепт</p>
+            </div>
+            <button id="craft-button" disabled>Создать</button>
+        </div>
+        <div id="inventory-panel" class="inventory-panel">
+            <h2>Инвентарь</h2>
+            <div id="inventory-grid"></div>
+        </div>
+    </div>
+    
+    <div id="game-container">
+        <canvas id="game-canvas"></canvas>
+        <div id="notification-container"></div>
+        <div id="top-bar">
+            <div id="mental-health-bar-container" class="game-ui-element">
+                <div id="mental-health-bar"></div>
+            </div>
+            <div id="clock-container" class="game-ui-element">
+                <div id="day-counter">День 1</div>
+                <div id="time-display">06:00</div>
+            </div>
+        </div>
+        <div id="bottom-ui">
+            <div id="hotbar"></div>
+            <div id="inventory-button-mobile" class="mobile-ui-button">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg>
+            </div>
+        </div>
+        <div id="joystick-container"></div>
+    </div>
+
+    <script>
+    // --- Инициализация ---
+    const canvas = document.getElementById('game-canvas'); const ctx = canvas.getContext('2d');
+    const startScreen = document.getElementById('start-screen'); const gameOverScreen = document.getElementById('game-over-screen');
+    const startButton = document.getElementById('start-button'); const restartButton = document.getElementById('restart-button');
+    const inventoryScreen = document.getElementById('inventory-screen'); const joystickContainer = document.getElementById('joystick-container');
+    const prequelScreen = document.getElementById('prequel-screen');
+    const prequelButton = document.getElementById('prequel-button');
+    const backFromPrequelButton = document.getElementById('back-from-prequel-button');
+
+    const TILE_SIZE = 32, WORLD_WIDTH = 100, WORLD_HEIGHT = 100;
+    const MENTAL_HEALTH_DRAIN_RATE = 0.5, ANGEL_HEAL_RADIUS = TILE_SIZE * 4, ANGEL_HEAL_RATE = 15, HUMAN_HEAL_RADIUS = TILE_SIZE * 3, HUMAN_HEAL_RATE = 5;
+    const DAY_DURATION_SECONDS = 24 * 60; // 24 минуты
+
+    let player, world, entities, camera, joystick = { active: false, x: 0, y: 0, dx: 0, dy: 0 };
+    let selectedHotbarSlot = 0, keys = {}, gameState = 'start', lastTime = 0, gameTime = DAY_DURATION_SECONDS * 0.25; // Начать в 6 утра
+
+    // --- Структуры данных ---
+    const ITEM_TYPES = {
+        WOOD: { id: 'WOOD', name: 'Дерево' }, STONE: { id: 'STONE', name: 'Камень' },
+        AXE: { id: 'AXE', name: 'Топор' }, PICKAXE: { id: 'PICKAXE', name: 'Кирка' }, SWORD: { id: 'SWORD', name: 'Меч' },
+        STONE_AXE: { id: 'STONE_AXE', name: 'Кам. топор' }, STONE_PICKAXE: { id: 'STONE_PICKAXE', name: 'Кам. кирка' },
+        DARK_ORB: { id: 'DARK_ORB', name: 'Шар Тьмы' }, MENTAL_SALVE: { id: 'MENTAL_SALVE', name: 'Целебная мазь' },
+        ACORN: { id: 'ACORN', name: 'Жёлудь' },
+        SAKURA_PETAL: { id: 'SAKURA_PETAL', name: 'Лепесток сакуры' },
+        DESPAIR_CRYSTAL: { id: 'DESPAIR_CRYSTAL', name: 'Кристалл отчаянья' },
+        SLEEPING_BAG: { id: 'SLEEPING_BAG', name: 'Спальник' },
+    };
+    const TILE_TYPES = { EMPTY: 0, TREE: 1, ROCK: 2, WOOD_BLOCK: 4, STONE_BLOCK: 5, BIRCH: 6, OAK: 7, SAKURA: 8 };
+    const ENTITY_TYPES = { SHADOW: 'SHADOW', ANGEL: 'ANGEL', HUMAN: 'HUMAN' };
+    const RECIPES = [
+        { output: { type: ITEM_TYPES.STONE_AXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.STONE, count: 3 }] },
+        { output: { type: ITEM_TYPES.STONE_PICKAXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.STONE, count: 3 }] },
+        { output: { type: ITEM_TYPES.MENTAL_SALVE, count: 1 }, ingredients: [{ type: ITEM_TYPES.DARK_ORB, count: 1 }, { type: ITEM_TYPES.STONE, count: 5 }] },
+        { output: { type: ITEM_TYPES.DESPAIR_CRYSTAL, count: 1 }, ingredients: [{ type: ITEM_TYPES.ACORN, count: 1 }, { type: ITEM_TYPES.DARK_ORB, count: 2 }, { type: ITEM_TYPES.WOOD, count: 10 }] },
+        { output: { type: ITEM_TYPES.SLEEPING_BAG, count: 1 }, ingredients: [{ type: ITEM_TYPES.SAKURA_PETAL, count: 3 }, { type: ITEM_TYPES.WOOD, count: 1 }] },
+    ];
+    let selectedRecipe = null;
+
+    // --- Графика ---
+    const art = {
+        player: [['#ccc', '#ccc'],['#888', '#888'],['#888', '#888'],['#444', '#444']],
+        human: [['#f0d2a4', '#f0d2a4'], ['#3e84d4', '#3e84d4'], ['#3e84d4', '#3e84d4'], ['#5a3d24', '#5a3d24']],
+        tree: [[null, '#292', '#292', null],['#292', '#3a3', '#3a3', '#292'],[null, '#643', '#643', null],[null, '#643', '#643', null]],
+        birch: [[null, '#ddd', '#111', null],['#ddd', '#fff', '#111', '#ddd'],[null, '#eee', '#eee', null],[null, '#eee', '#eee', null]],
+        oak: [[null, '#282', '#282', null],['#282', '#3a3', '#3a3', '#282'],[null, '#754', '#754', null],[null, '#754', '#754', null]],
+        sakura: [[null, '#fbc', '#fbc', null],['#fbc', '#fce', '#fce', '#fbc'],[null, '#532', '#532', null],[null, '#532', '#532', null]],
+        rock: [[null, '#888', null],['#aaa', '#888', '#aaa'],['#aaa', '#aaa', '#aaa']],
+        shadow: (f) => [[null, f ? '#222' : '#111', null],[f ? '#333' : '#222', '#111', f ? '#333' : '#222'],[null, f ? '#222' : '#111', null]],
+        angel: (f) => [[f ? '#fff' : '#eee', '#fff', f ? '#fff' : '#eee'],[null, '#ddd', null]],
+        axe: [['#ccc', '#aaa', null],[null, '#643', '#ccc'],[null, '#643', null]],
+        pickaxe: [['#ccc', '#ccc', '#ccc'],[null, '#643', null],[null, '#643', null]],
+        sword: [[null, '#fff', null],[null, '#fff', null],[null, '#643', null]],
+        wood_block: [['#965', '#854', '#965', '#854'],['#643', '#854', '#643', '#854'],['#965', '#854', '#965', '#854'],['#643', '#854', '#643', '#854']],
+        stone_block: [['#aaa', '#aaa', '#999', '#888'],['#aaa', '#888', '#888', '#999'],['#999', '#888', '#777', '#777'],['#888', '#999', '#777', '#aaa']],
+        stone_axe: [['#888', '#666', null],[null, '#643', '#888'],[null, '#643', null]],
+        stone_pickaxe: [['#888', '#888', '#888'],[null, '#643', null],[null, '#643', null]],
+        dark_orb: [[null, '#201', null], ['#302', '#101', '#302'], [null, '#201', null]],
+        mental_salve: [[null, '#afa', null], ['#9c9', '#dfd', '#9c9'], [null, '#afa', null]],
+        acorn: [[null, '#864', null],['#864', '#a85', '#864'],[null, '#a85', null]],
+        sakura_petal: [[null, '#fde', null], ['#fde', '#fbc', '#fde']],
+        despair_crystal: [[null, '#aaf', '#aaf', null], ['#aaf', '#fff', '#fff', '#aaf'], ['#aaf', '#fff', '#fff', '#aaf'], [null, '#aaf', '#aaf', null]],
+        sleeping_bag: [[null, '#d88', '#d88', '#c66'], [null, '#d88', '#c66', '#c66'], ['#432', '#432', '#432', '#432']],
+    };
+    const drawPixelArtOnCtx = (tCtx, x, y, s, p) => {
+        const pS = s / p.length;
+        for (let row = 0; row < p.length; row++) for (let col = 0; col < p[row].length; col++) {
+            if (p[row][col]) { tCtx.fillStyle = p[row][col]; tCtx.fillRect(Math.floor(x + col*pS), Math.floor(y + row*pS), Math.ceil(pS), Math.ceil(pS)); }
+        }
+    };
+    const drawPixelArt = (x, y, size, pixels) => drawPixelArtOnCtx(ctx, x, y, size, pixels);
+
+    // --- Поиск пути A* ---
+    function findPath(startX, startY, endX, endY) {
+        const openList = [], closedList = [], grid = world;
+        const maxIterations = 2000; // Ограничение, чтобы избежать зависаний
+        let iterations = 0;
+        const startNode = { x: startX, y: startY, g: 0, h: Math.abs(endX - startX) + Math.abs(endY - startY), f: 0, parent: null };
+        startNode.f = startNode.h; openList.push(startNode);
+        while (openList.length > 0 && iterations < maxIterations) {
+            iterations++;
+            let lowInd = 0;
+            for (let i = 0; i < openList.length; i++) { if (openList[i].f < openList[lowInd].f) lowInd = i; }
+            const currentNode = openList[lowInd];
+            if (currentNode.x === endX && currentNode.y === endY) {
+                let curr = currentNode; const ret = [];
+                while (curr.parent) { ret.push({x: curr.x * TILE_SIZE + TILE_SIZE / 2, y: curr.y * TILE_SIZE + TILE_SIZE / 2}); curr = curr.parent; }
+                return ret.reverse();
+            }
+            openList.splice(lowInd, 1); closedList.push(currentNode);
+            const neighbors = []; const x = currentNode.x; const y = currentNode.y;
+            if (x > 0) neighbors.push({ x: x - 1, y }); if (x < WORLD_WIDTH - 1) neighbors.push({ x: x + 1, y });
+            if (y > 0) neighbors.push({ x, y: y - 1 }); if (y < WORLD_HEIGHT - 1) neighbors.push({ x, y: y + 1 });
+            for (const neighbor of neighbors) {
+                if (isSolid(grid[neighbor.x]?.[neighbor.y]) || closedList.some(n => n.x === neighbor.x && n.y === neighbor.y)) continue;
+                const gScore = currentNode.g + 1; let gScoreIsBest = false;
+                let neighborNode = openList.find(n => n.x === neighbor.x && n.y === neighbor.y);
+                if (!neighborNode) {
+                    gScoreIsBest = true; neighborNode = { x: neighbor.x, y: neighbor.y, h: Math.abs(endX - neighbor.x) + Math.abs(endY - neighbor.y), parent: currentNode };
+                    openList.push(neighborNode);
+                } else if (gScore < neighborNode.g) gScoreIsBest = true;
+                if (gScoreIsBest) { neighborNode.parent = currentNode; neighborNode.g = gScore; neighborNode.f = neighborNode.g + neighborNode.h; }
+            }
+        }
+        return null; // Путь не найден (или превышен лимит итераций)
+    }
+
+    // --- Игровой цикл ---
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        ctx.imageSmoothingEnabled = false;
+    }
+    
+    function initGame() {
+        resizeCanvas();
+        player = { x: (WORLD_WIDTH * TILE_SIZE) / 2, y: (WORLD_HEIGHT * TILE_SIZE) / 2, speed: 150, mentalHealth: 100, maxMentalHealth: 100,
+            inventory: Array(15).fill(null), attackCooldown: 0 };
+        player.inventory[0] = { type: ITEM_TYPES.AXE, count: 1 };
+        player.inventory[1] = { type: ITEM_TYPES.PICKAXE, count: 1 };
+        player.inventory[2] = { type: ITEM_TYPES.SWORD, count: 1 };
+        camera = { x: 0, y: 0 };
+        world = Array(WORLD_WIDTH).fill(0).map(() => Array(WORLD_HEIGHT).fill(TILE_TYPES.EMPTY));
+        entities = [];
+        generateWorld();
+        gameState = 'playing';
+        gameOverScreen.style.display = 'none';
+        lastTime = performance.now();
+        requestAnimationFrame(gameLoop);
+    }
+    function generateWorld() {
+        for (let x = 0; x < WORLD_WIDTH; x++) for (let y = 0; y < WORLD_HEIGHT; y++) {
+            const n = Math.random();
+            // Снижаем частоту появления всех объектов
+            if (n > 0.98) world[x][y] = TILE_TYPES.ROCK;
+            else if (n > 0.97) world[x][y] = TILE_TYPES.OAK;
+            else if (n > 0.96) world[x][y] = TILE_TYPES.SAKURA;
+            else if (n > 0.95) world[x][y] = TILE_TYPES.BIRCH;
+            else if (n > 0.93) world[x][y] = TILE_TYPES.TREE;
+        }
+    }
+    function gameLoop(timestamp) {
+        if (gameState === 'start') return;
+        const deltaTime = (timestamp - lastTime) / 1000;
+        lastTime = timestamp;
+        if (gameState !== 'paused') update(deltaTime);
+        draw();
+        if (gameState !== 'game_over') requestAnimationFrame(gameLoop);
+    }
+    
+    // --- Обновление состояния ---
+    function update(dt) {
+        gameTime += dt;
+        let dx = 0, dy = 0;
+        if (keys['w'] || keys['ArrowUp']) dy -= 1; if (keys['s'] || keys['ArrowDown']) dy += 1;
+        if (keys['a'] || keys['ArrowLeft']) dx -= 1; if (keys['d'] || keys['ArrowRight']) dx += 1;
+        if (joystick.active) { dx += joystick.dx; dy += joystick.dy; }
+        if (dx !== 0 || dy !== 0) {
+            const mag = Math.sqrt(dx*dx + dy*dy);
+            const moveX = (dx / mag) * player.speed * dt, moveY = (dy / mag) * player.speed * dt;
+            const nextX = player.x + moveX, nextY = player.y + moveY;
+            if (!isSolid(world[Math.floor(nextX / TILE_SIZE)]?.[Math.floor(nextY / TILE_SIZE)])) { player.x = nextX; player.y = nextY; }
+        }
+        player.mentalHealth -= MENTAL_HEALTH_DRAIN_RATE * dt;
+        updateEntities(dt);
+        spawnEntities();
+        if (player.attackCooldown > 0) player.attackCooldown -= dt;
+        if (player.mentalHealth <= 0) { player.mentalHealth = 0; gameState = 'game_over'; gameOverScreen.style.display = 'flex'; }
+    }
+    function isSolid(tileType) {
+        return tileType === TILE_TYPES.TREE || tileType === TILE_TYPES.ROCK || tileType === TILE_TYPES.WOOD_BLOCK ||
+               tileType === TILE_TYPES.STONE_BLOCK || tileType === TILE_TYPES.BIRCH || tileType === TILE_TYPES.OAK ||
+               tileType === TILE_TYPES.SAKURA;
+    }
+    function isPlayerPlaced(tileType) { return tileType === TILE_TYPES.WOOD_BLOCK || tileType === TILE_TYPES.STONE_BLOCK; }
+
+    function updateEntities(dt) {
+        entities.forEach((e, index) => {
+            if (e.health <= 0) {
+                entities.splice(index, 1);
+                return;
+            }
+            let moveX = 0, moveY = 0;
+            // --- Логика тени ---
+            if (e.type === ENTITY_TYPES.SHADOW) {
+                let target = {x: player.x, y: player.y};
+                let closestDist = Math.hypot(e.x - player.x, e.y - player.y);
+                entities.forEach(otherE => {
+                    if (otherE.type === ENTITY_TYPES.HUMAN && !otherE.aggressive) {
+                        const dist = Math.hypot(e.x - otherE.x, e.y - otherE.y);
+                        if (dist < closestDist) { closestDist = dist; target = otherE; }
+                    }
+                });
+
+                e.pathUpdateTimer -= dt;
+                if (e.pathUpdateTimer <= 0) {
+                    e.pathUpdateTimer = 1.0;
+                    e.path = findPath(Math.floor(e.x / TILE_SIZE), Math.floor(e.y / TILE_SIZE), Math.floor(target.x / TILE_SIZE), Math.floor(target.y / TILE_SIZE));
+                    if (!e.path) e.moveTimer = 0;
+                }
+                
+                if (e.path && e.path.length > 0) {
+                    const pathTarget = e.path[0], angle = Math.atan2(pathTarget.y - e.y, pathTarget.x - e.x);
+                    moveX = Math.cos(angle) * e.speed * dt; moveY = Math.sin(angle) * e.speed * dt;
+                    if (Math.hypot(pathTarget.y - e.y, pathTarget.x - e.x) < TILE_SIZE / 2) e.path.shift();
+                } else { 
+                    e.moveTimer -= dt;
+                    if (e.moveTimer <= 0) { e.angle = Math.random() * Math.PI * 2; e.moveTimer = Math.random() * 2 + 1; }
+                    moveX = Math.cos(e.angle) * e.speed * 0.5 * dt; moveY = Math.sin(e.angle) * e.speed * 0.5 * dt;
+                }
+                if (Math.hypot(e.x - target.x, e.y - target.y) < TILE_SIZE) {
+                     if (target === player) player.mentalHealth -= 20 * dt;
+                     else target.health -= 20 * dt;
+                }
+            // --- Логика ангела ---
+            } else if (e.type === ENTITY_TYPES.ANGEL) {
+                e.moveTimer -= dt;
+                if (e.moveTimer <= 0) { e.angle = Math.random() * Math.PI * 2; e.moveTimer = Math.random() * 3 + 2; }
+                moveX = Math.cos(e.angle) * e.speed * dt; moveY = Math.sin(e.angle) * e.speed * dt;
+                if (Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS) player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + ANGEL_HEAL_RATE * dt);
+            // --- Логика человека ---
+            } else if (e.type === ENTITY_TYPES.HUMAN) {
+                if(e.aggressive) { 
+                    e.pathUpdateTimer -= dt;
+                    if (e.pathUpdateTimer <= 0) {
+                        e.pathUpdateTimer = 1.0;
+                        e.path = findPath(Math.floor(e.x / TILE_SIZE), Math.floor(e.y / TILE_SIZE), Math.floor(player.x / TILE_SIZE), Math.floor(player.y / TILE_SIZE));
+                    }
+                    if (e.path && e.path.length > 0) {
+                        const target = e.path[0], angle = Math.atan2(target.y - e.y, target.x - e.x);
+                        moveX = Math.cos(angle) * e.speed * dt; moveY = Math.sin(angle) * e.speed * dt;
+                        if (Math.hypot(target.y - e.y, target.x - e.x) < TILE_SIZE / 2) e.path.shift();
+                    }
+                    if (Math.hypot(e.x - player.x, e.y - player.y) < TILE_SIZE * 1.5) { 
+                        player.mentalHealth -= e.damage * dt; 
+                        entities.forEach(otherE => {
+                            if (otherE.type === ENTITY_TYPES.HUMAN && !otherE.aggressive && Math.hypot(e.x - otherE.x, e.y - otherE.y) < TILE_SIZE * 2) {
+                                otherE.health -= e.damage * 0.25 * dt;
+                            }
+                        });
+                    }
+                } else { 
+                    e.moveTimer -= dt;
+                    if (e.moveTimer <= 0) { e.angle = Math.random() * Math.PI * 2; e.moveTimer = Math.random() * 3 + 2; }
+                    moveX = Math.cos(e.angle) * e.speed * dt; moveY = Math.sin(e.angle) * e.speed * dt;
+                    if (Math.hypot(e.x - player.x, e.y - player.y) < HUMAN_HEAL_RADIUS) player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + HUMAN_HEAL_RATE * dt);
+                }
+            }
+
+            const nextX = e.x + moveX, nextY = e.y + moveY;
+            if (!isSolid(world[Math.floor(nextX / TILE_SIZE)]?.[Math.floor(nextY / TILE_SIZE)])) { e.x = nextX; e.y = nextY; } 
+            else { e.moveTimer = 0; if (e.path) e.path = null; } 
+            e.x = Math.max(0, Math.min(e.x, WORLD_WIDTH * TILE_SIZE)); e.y = Math.max(0, Math.min(e.y, WORLD_HEIGHT * TILE_SIZE));
+        });
+    }
+    function spawnEntities() {
+        if (entities.filter(e => e.type === ENTITY_TYPES.SHADOW).length < 10 && Math.random() < 0.01) spawnEntity(ENTITY_TYPES.SHADOW);
+        if (entities.filter(e => e.type === ENTITY_TYPES.ANGEL).length < 3 && Math.random() < 0.002) spawnEntity(ENTITY_TYPES.ANGEL);
+        if (entities.filter(e => e.type === ENTITY_TYPES.HUMAN).length < 5 && Math.random() < 0.005) spawnEntity(ENTITY_TYPES.HUMAN);
+    }
+    function spawnEntity(type, spawnX, spawnY) {
+        const angle = Math.random() * Math.PI * 2, radius = Math.max(canvas.width, canvas.height);
+        const x = spawnX ?? player.x + Math.cos(angle) * radius;
+        const y = spawnY ?? player.y + Math.sin(angle) * radius;
+
+        if (type === ENTITY_TYPES.SHADOW) entities.push({ type, x, y, speed: 60, health: 10, path: null, pathUpdateTimer: 0, moveTimer: 0, angle: 0 });
+        else if (type === ENTITY_TYPES.ANGEL) entities.push({ type, x, y, speed: 30, health: 20, moveTimer: 0, angle: 0 });
+        else if (type === ENTITY_TYPES.HUMAN) {
+            const isAngry = (spawnX !== undefined) ? Math.random() < 0.5 : Math.random() < 0.3;
+            entities.push({ type, x, y, speed: isAngry ? 75 : 50, health: 100, moveTimer: 0, angle: 0, 
+                aggressive: isAngry, 
+                damage: isAngry ? 30 : 15, 
+                path: null, pathUpdateTimer: 0 });
+        }
+    }
+    
+    // --- Отрисовка ---
+    function draw() {
+        const timePercent = (gameTime % DAY_DURATION_SECONDS) / DAY_DURATION_SECONDS;
+        const lightLevel = 0.3 + Math.sin(timePercent * Math.PI * 2 - Math.PI / 2) * 0.7 + 0.3;
+        canvas.style.filter = `brightness(${Math.min(1, lightLevel)})`;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        camera.x = player.x - canvas.width / 2; camera.y = player.y - canvas.height / 2;
+        const startCol = Math.floor(camera.x / TILE_SIZE), endCol = startCol + Math.ceil(canvas.width / TILE_SIZE) + 1;
+        const startRow = Math.floor(camera.y / TILE_SIZE), endRow = startRow + Math.ceil(canvas.height / TILE_SIZE) + 1;
+        for (let x = startCol; x < endCol; x++) for (let y = startRow; y < endRow; y++) {
+            if (x < 0 || y < 0 || x >= WORLD_WIDTH || y >= WORLD_HEIGHT) continue;
+            const tile = world[x][y], dX = x * TILE_SIZE - camera.x, dY = y * TILE_SIZE - camera.y;
+            if (tile === TILE_TYPES.TREE) drawPixelArt(dX, dY, TILE_SIZE, art.tree);
+            else if (tile === TILE_TYPES.BIRCH) drawPixelArt(dX, dY, TILE_SIZE, art.birch);
+            else if (tile === TILE_TYPES.OAK) drawPixelArt(dX, dY, TILE_SIZE, art.oak);
+            else if (tile === TILE_TYPES.SAKURA) drawPixelArt(dX, dY, TILE_SIZE, art.sakura);
+            else if (tile === TILE_TYPES.ROCK) drawPixelArt(dX, dY, TILE_SIZE, art.rock);
+            else if (tile === TILE_TYPES.WOOD_BLOCK) drawPixelArt(dX, dY, TILE_SIZE, art.wood_block);
+            else if (tile === TILE_TYPES.STONE_BLOCK) drawPixelArt(dX, dY, TILE_SIZE, art.stone_block);
+        }
+        entities.forEach(e => {
+            const dX = e.x - camera.x, dY = e.y - camera.y;
+            if (e.type === ENTITY_TYPES.SHADOW) drawPixelArt(dX - TILE_SIZE / 2, dY - TILE_SIZE / 2, TILE_SIZE, art.shadow(Math.random() > 0.5));
+            else if (e.type === ENTITY_TYPES.ANGEL) {
+                ctx.beginPath(); ctx.arc(dX, dY, ANGEL_HEAL_RADIUS, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.05)'; ctx.fill();
+                drawPixelArt(dX - TILE_SIZE / 2, dY - TILE_SIZE / 2, TILE_SIZE, art.angel(Math.random() > 0.5));
+            } else if (e.type === ENTITY_TYPES.HUMAN) {
+                 if (!e.aggressive) {
+                    ctx.beginPath(); ctx.arc(dX, dY, HUMAN_HEAL_RADIUS, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(144, 238, 144, 0.05)'; ctx.fill();
+                 } else {
+                    ctx.beginPath(); ctx.arc(dX, dY, TILE_SIZE * 1.5, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255, 0, 0, 0.1)'; ctx.fill();
+                 }
+                 drawPixelArt(dX - TILE_SIZE / 2, dY - TILE_SIZE / 2, TILE_SIZE, art.human);
+            }
+        });
+        drawPixelArt(canvas.width/2 - TILE_SIZE/2, canvas.height/2 - TILE_SIZE/2, TILE_SIZE, art.player);
+        
+        const selectedItem = player.inventory[selectedHotbarSlot];
+        if (selectedItem && gameState === 'playing') {
+            let artKey = Object.keys(ITEM_TYPES).find(key => ITEM_TYPES[key].id === selectedItem.type.id)?.toLowerCase();
+            if (selectedItem.type.id === 'WOOD') artKey = 'wood_block';
+            if (selectedItem.type.id === 'STONE') artKey = 'stone_block';
+            
+            if (art[artKey]) {
+                const itemSize = TILE_SIZE * 0.7;
+                const itemX = canvas.width / 2 + TILE_SIZE * 0.1;
+                const itemY = canvas.height / 2 - TILE_SIZE * 0.1;
+                drawPixelArt(itemX, itemY, itemSize, art[artKey]);
+            }
+        }
+        
+        if (gameState === 'paused') {
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+        }
+        updateUI();
+    }
+    
+    // --- UI и Инвентарь ---
+    function showNotification(message) {
+        const container = document.getElementById('notification-container');
+        const notif = document.createElement('div');
+        notif.className = 'notification-message';
+        notif.textContent = message;
+        container.appendChild(notif);
+        setTimeout(() => {
+            notif.remove();
+        }, 5000);
+    }
+
+    function updateUI() {
+        document.getElementById('mental-health-bar').style.width = `${(player.mentalHealth / player.maxMentalHealth) * 100}%`;
+        const day = Math.floor(gameTime / DAY_DURATION_SECONDS) + 1;
+        const timeInDay = gameTime % DAY_DURATION_SECONDS;
+        const hour = Math.floor(timeInDay / (DAY_DURATION_SECONDS / 24));
+        const minute = Math.floor((timeInDay % (DAY_DURATION_SECONDS / 24)) / (DAY_DURATION_SECONDS / 24 / 60));
+        document.getElementById('day-counter').textContent = `День ${day}`;
+        document.getElementById('time-display').textContent = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+        
+        const hotbar = document.getElementById('hotbar');
+        hotbar.innerHTML = '';
+        for (let i = 0; i < 5; i++) hotbar.appendChild(createSlotElement(i));
+    }
+    function createSlotElement(i, isInventorySlot = false) {
+        const slot = document.createElement('div');
+        slot.className = isInventorySlot ? 'inventory-slot' : 'hotbar-slot';
+        if (isInventorySlot) slot.classList.add('hotbar-slot'); // Reuse styling
+        slot.classList.toggle('selected', !isInventorySlot && i === selectedHotbarSlot);
+        slot.dataset.slotIndex = i;
+        slot.draggable = player.inventory[i] != null;
+        
+        const item = player.inventory[i];
+        if (item) {
+            const iconSize = 64; 
+            const canvasIcon = document.createElement('canvas');
+            canvasIcon.width = canvasIcon.height = iconSize; canvasIcon.className = 'item-icon';
+            const iconCtx = canvasIcon.getContext('2d'); iconCtx.imageSmoothingEnabled = false;
+            
+            let artKey = Object.keys(ITEM_TYPES).find(key => ITEM_TYPES[key].id === item.type.id)?.toLowerCase();
+            if (item.type.id === 'WOOD') artKey = 'wood_block';
+            if (item.type.id === 'STONE') artKey = 'stone_block';
+            
+            if (art[artKey]) {
+                drawPixelArtOnCtx(iconCtx, 0, 0, iconSize, art[artKey]);
+            }
+            slot.appendChild(canvasIcon);
+            
+            if (item.count > 1) {
+                const itemCount = document.createElement('span'); itemCount.className = 'item-count';
+                itemCount.innerText = item.count; slot.appendChild(itemCount);
+            }
+        }
+        return slot;
+    }
+    function toggleInventory() {
+        if (gameState === 'game_over') return;
+        const isOpening = gameState !== 'paused';
+        gameState = isOpening ? 'paused' : 'playing';
+        inventoryScreen.style.display = isOpening ? 'flex' : 'none';
+        if (isOpening) {
+            selectedRecipe = null; // Сбрасываем выбор при открытии
+            updateInventoryScreen();
+        }
+    }
+    function updateInventoryScreen() {
+        const inventoryGrid = document.getElementById('inventory-grid');
+        inventoryGrid.innerHTML = '';
+        for (let i = 0; i < player.inventory.length; i++) inventoryGrid.appendChild(createSlotElement(i, true));
+        updateRecipeList();
+    }
+    function updateRecipeList() {
+        const recipeList = document.getElementById('recipe-list');
+        recipeList.innerHTML = '';
+        RECIPES.forEach((recipe, index) => {
+            const li = document.createElement('li');
+            li.textContent = `${recipe.output.type.name} x${recipe.output.count}`;
+            li.dataset.recipeIndex = index;
+            const canCraft = canCraftRecipe(recipe);
+            li.classList.toggle('un-craftable', !canCraft);
+            li.classList.toggle('selected', selectedRecipe === recipe);
+            li.addEventListener('click', () => { 
+                // Позволяем переключать и отменять выбор рецепта
+                if (selectedRecipe === recipe) {
+                    selectedRecipe = null;
+                } else {
+                    selectedRecipe = recipe;
+                }
+                updateRecipeList(); // Перерисовываем список, чтобы обновить выделение
+            });
+            recipeList.appendChild(li);
+        });
+        updateCraftingDetails();
+    }
+    function updateCraftingDetails() {
+        const details = document.getElementById('crafting-details');
+        const button = document.getElementById('craft-button');
+        if (!selectedRecipe) {
+            details.innerHTML = `<p>Выберите рецепт</p>`;
+            button.disabled = true;
+            return;
+        }
+        const canCraft = canCraftRecipe(selectedRecipe);
+        let detailsHtml = `<h4>${selectedRecipe.output.type.name}</h4><ul>`;
+        selectedRecipe.ingredients.forEach(ing => {
+            const hasCount = countItems(ing.type);
+            const hasEnough = hasCount >= ing.count;
+            detailsHtml += `<li class="${!hasEnough ? 'needed-bad' : ''}" style="list-style: none;">${ing.type.name}: ${hasCount}/${ing.count}</li>`;
+        });
+        detailsHtml += `</ul>`;
+        details.innerHTML = detailsHtml;
+        button.disabled = !canCraft;
+    }
+    document.getElementById('craft-button').addEventListener('click', () => {
+        if (selectedRecipe && canCraftRecipe(selectedRecipe)) {
+            craftRecipe(selectedRecipe);
+            updateInventoryScreen();
+        }
+    });
+
+    // --- Логика предметов и крафта ---
+    function countItems(itemType) {
+        return player.inventory.reduce((sum, item) => item && item.type.id === itemType.id ? sum + item.count : sum, 0);
+    }
+    function canCraftRecipe(recipe) {
+        return recipe.ingredients.every(ing => countItems(ing.type) >= ing.count);
+    }
+    function craftRecipe(recipe) {
+        if (!canCraftRecipe(recipe)) return;
+        recipe.ingredients.forEach(ing => removeItemFromInventory(ing.type, ing.count));
+        addItemToInventory(recipe.output.type, recipe.output.count);
+    }
+    function addItemToInventory(itemType, count) {
+        for (let i = 0; i < player.inventory.length; i++) {
+            if (player.inventory[i] && player.inventory[i].type.id === itemType.id) { player.inventory[i].count += count; return true; }
+        }
+        for (let i = 0; i < player.inventory.length; i++) {
+            if (!player.inventory[i]) { player.inventory[i] = { type: itemType, count }; return true; }
+        }
+        return false;
+    }
+    function removeItemFromInventory(itemType, count) {
+        for (let i = player.inventory.length - 1; i >= 0; i--) {
+            const item = player.inventory[i];
+            if (item && item.type.id === itemType.id) {
+                const toRemove = Math.min(count, item.count);
+                item.count -= toRemove;
+                count -= toRemove;
+                if (item.count <= 0) player.inventory[i] = null;
+                if (count <= 0) return true; // Успешно удалено
+            }
+        }
+        return false; // Не удалось удалить нужное количество
+    }
+    
+    // --- Взаимодействие ---
+    function handleInteraction(clientX, clientY) {
+        if (gameState !== 'playing' || player.attackCooldown > 0) return;
+        if (isTouchDevice()) {
+            const joyRect = joystickContainer.getBoundingClientRect();
+            if (clientX >= joyRect.left && clientX <= joyRect.right && clientY >= joyRect.top && clientY <= joyRect.bottom) return;
+            const bottomUiRect = document.getElementById('bottom-ui').getBoundingClientRect();
+             if (clientY >= bottomUiRect.top) return;
+        }
+        const mouseX = clientX + camera.x, mouseY = clientY + camera.y;
+        const gridX = Math.floor(mouseX / TILE_SIZE), gridY = Math.floor(mouseY / TILE_SIZE);
+        const selectedItem = player.inventory[selectedHotbarSlot];
+
+        if (selectedItem) {
+            if (selectedItem.type === ITEM_TYPES.MENTAL_SALVE) {
+                player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + 50);
+                removeItemFromInventory(ITEM_TYPES.MENTAL_SALVE, 1);
+                player.attackCooldown = 0.5; return;
+            }
+            if (selectedItem.type === ITEM_TYPES.DESPAIR_CRYSTAL) {
+                let nearestAngel = null, minDist = Infinity;
+                entities.forEach(e => {
+                    if (e.type === ENTITY_TYPES.ANGEL) {
+                        const dist = Math.hypot(player.x - e.x, player.y - e.y);
+                        if (dist < minDist) { minDist = dist; nearestAngel = e; }
+                    }
+                });
+                if (nearestAngel) {
+                    player.x = nearestAngel.x; player.y = nearestAngel.y;
+                    removeItemFromInventory(ITEM_TYPES.DESPAIR_CRYSTAL, 1);
+                } else { showNotification("Поблизости нет ангелов, чтобы услышать твой зов."); }
+                player.attackCooldown = 1; return;
+            }
+            if (selectedItem.type === ITEM_TYPES.SLEEPING_BAG) {
+                gameTime += DAY_DURATION_SECONDS;
+                player.mentalHealth = player.maxMentalHealth;
+                removeItemFromInventory(ITEM_TYPES.SLEEPING_BAG, 1);
+                if (Math.random() < 0.20) {
+                    const itemsInInventory = player.inventory.map((item, index) => ({item, index})).filter(i => i.item != null);
+                    if (itemsInInventory.length > 0) {
+                        const stolen = itemsInInventory[Math.floor(Math.random() * itemsInInventory.length)];
+                        const amountToRemove = Math.min(stolen.item.count, Math.floor(Math.random() * 5) + 1);
+                        showNotification(`Пока ты спал, у тебя украли ${stolen.item.type.name} в количестве ${amountToRemove}`);
+                        removeItemFromInventory(stolen.item.type, amountToRemove);
+                    }
+                }
+                player.attackCooldown = 1; return;
+            }
+            if (selectedItem.type === ITEM_TYPES.SAKURA_PETAL) {
+                spawnEntity(ENTITY_TYPES.HUMAN, player.x, player.y + TILE_SIZE * 1.5);
+                removeItemFromInventory(ITEM_TYPES.SAKURA_PETAL, 1);
+                player.attackCooldown = 0.5; return;
+            }
+        }
+
+        let didAttack = false;
+        if (selectedItem && selectedItem.type.id.includes('SWORD')) {
+            const swordDamage = 3;
+            entities.forEach(e => { 
+                if (Math.hypot(e.x - mouseX, e.y - mouseY) < TILE_SIZE * 1.2) {
+                    if (e.type === ENTITY_TYPES.SHADOW) {
+                        e.health -= swordDamage; 
+                        if (e.health <= 0) addItemToInventory(ITEM_TYPES.DARK_ORB, 1);
+                        didAttack = true;
+                    } else if (e.type === ENTITY_TYPES.ANGEL) {
+                        player.mentalHealth *= 0.5; e.health -= swordDamage; didAttack = true;
+                    } else if (e.type === ENTITY_TYPES.HUMAN) {
+                        e.aggressive = true; e.health -= swordDamage;
+                        if (e.health <= 0) {
+                            if (Math.random() < 0.5) addItemToInventory(ITEM_TYPES.DARK_ORB, 1);
+                            else addItemToInventory(ITEM_TYPES.MENTAL_SALVE, 1);
+                        }
+                        didAttack = true;
+                    }
+                }
+            });
+            if (didAttack) { player.attackCooldown = 0.5; return; }
+        }
+
+        if (gridX < 0 || gridY < 0 || gridX >= WORLD_WIDTH || gridY >= WORLD_HEIGHT) return;
+        const tile = world[gridX][gridY];
+
+        if (isPlayerPlaced(tile)) { 
+            if (tile === TILE_TYPES.WOOD_BLOCK) addItemToInventory(ITEM_TYPES.WOOD, 1);
+            else if (tile === TILE_TYPES.STONE_BLOCK) addItemToInventory(ITEM_TYPES.STONE, 1);
+            world[gridX][gridY] = TILE_TYPES.EMPTY; return;
+        }
+        
+        if (!selectedItem) return;
+        const toolPower = selectedItem.type.id.includes('STONE') ? 2 : 1;
+        if (tile === TILE_TYPES.TREE && selectedItem.type.id.includes('AXE')) { world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower); } 
+        else if (tile === TILE_TYPES.BIRCH && selectedItem.type.id.includes('AXE')) { world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.WOOD, 2 * toolPower); } 
+        else if (tile === TILE_TYPES.OAK && selectedItem.type.id.includes('AXE')) {
+            world[gridX][gridY] = TILE_TYPES.EMPTY;
+            addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower);
+            if (Math.random() < 0.5) addItemToInventory(ITEM_TYPES.ACORN, 1);
+        }
+        else if (tile === TILE_TYPES.SAKURA && selectedItem.type.id.includes('AXE')) { 
+            world[gridX][gridY] = TILE_TYPES.EMPTY; 
+            addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower);
+            addItemToInventory(ITEM_TYPES.SAKURA_PETAL, 1 * toolPower);
+        }
+        else if (tile === TILE_TYPES.ROCK && selectedItem.type.id.includes('PICKAXE')) { world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.STONE, 1 * toolPower); } 
+        else if (tile === TILE_TYPES.EMPTY) {
+            if (selectedItem.type === ITEM_TYPES.WOOD && countItems(ITEM_TYPES.WOOD) > 0) { world[gridX][gridY] = TILE_TYPES.WOOD_BLOCK; removeItemFromInventory(ITEM_TYPES.WOOD, 1); } 
+            else if (selectedItem.type === ITEM_TYPES.STONE && countItems(ITEM_TYPES.STONE) > 0) { world[gridX][gridY] = TILE_TYPES.STONE_BLOCK; removeItemFromInventory(ITEM_TYPES.STONE, 1); }
+        }
+    }
+
+    // --- Управление ---
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('keydown', (e) => {
+        if (gameState === 'start' || gameState === 'game_over') return;
+        const key = e.key.toLowerCase();
+        keys[key] = true;
+        if (key >= '1' && key <= '5') selectedHotbarSlot = parseInt(key) - 1;
+        if (key === 'e' || key === 'i') {
+            toggleInventory();
+        }
+        if (key === 'escape' && gameState === 'paused') {
+            toggleInventory();
+        }
+    });
+    window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+    canvas.addEventListener('mousedown', (e) => { if (e.button === 0) handleInteraction(e.clientX, e.clientY); });
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
+    
+    startButton.addEventListener('click', () => { startScreen.style.display = 'none'; initGame(); });
+    restartButton.addEventListener('click', () => { initGame(); });
+    prequelButton.addEventListener('click', () => { startScreen.style.display = 'none'; prequelScreen.style.display = 'flex'; });
+    backFromPrequelButton.addEventListener('click', () => { prequelScreen.style.display = 'none'; startScreen.style.display = 'flex'; });
+
+    inventoryScreen.addEventListener('click', (e) => {
+        if (e.target === inventoryScreen) { 
+            toggleInventory();
+        }
+    });
+
+    const inventoryButtonMobile = document.getElementById('inventory-button-mobile');
+    inventoryButtonMobile.addEventListener('click', toggleInventory);
+
+    // --- Drag and Drop инвентаря ---
+    let draggedItemIndex = null;
+    
+    function handleDragStart(e) {
+        draggedItemIndex = parseInt(e.target.dataset.slotIndex);
+        e.dataTransfer.effectAllowed = 'move';
+        setTimeout(() => e.target.classList.add('dragging'), 0);
+    }
+
+    function handleDragEnd(e) {
+        e.target.classList.remove('dragging');
+        draggedItemIndex = null;
+    }
+    
+    function handleDragOver(e) { e.preventDefault(); }
+
+    function handleDrop(e) {
+        e.preventDefault();
+        const targetSlot = e.target.closest('.hotbar-slot, .inventory-slot');
+        if (targetSlot && draggedItemIndex !== null) {
+            const droppedOnIndex = parseInt(targetSlot.dataset.slotIndex);
+            
+            const temp = player.inventory[draggedItemIndex];
+            player.inventory[draggedItemIndex] = player.inventory[droppedOnIndex];
+            player.inventory[droppedOnIndex] = temp;
+            
+            if (gameState === 'paused') updateInventoryScreen();
+            updateUI();
+        }
+    }
+    
+    document.getElementById('hotbar').addEventListener('click', (e) => {
+        const slot = e.target.closest('.hotbar-slot');
+        if (slot) selectedHotbarSlot = parseInt(slot.dataset.slotIndex);
+    });
+    const setupDragListeners = (container) => {
+        container.addEventListener('dragstart', handleDragStart);
+        container.addEventListener('dragend', handleDragEnd);
+        container.addEventListener('dragover', handleDragOver);
+        container.addEventListener('drop', handleDrop);
+    };
+    setupDragListeners(document.getElementById('inventory-screen'));
+    setupDragListeners(document.getElementById('hotbar'));
+
+
+    // --- Джойстик ---
+    function isTouchDevice() { return 'ontouchstart' in window || navigator.maxTouchPoints > 0; }
+    if (isTouchDevice()) {
+        joystickContainer.style.display = 'block';
+        inventoryButtonMobile.style.display = 'flex';
+        joystickContainer.innerHTML = `<div id="joystick-handle"></div>`;
+        joystickContainer.addEventListener('touchstart', (e) => { e.preventDefault(); joystick.active = true; }, { passive: false });
+        joystickContainer.addEventListener('touchmove', (e) => {
+            e.preventDefault(); if (!joystick.active) return;
+            const touch = e.touches[0];
+            const rect = joystickContainer.getBoundingClientRect();
+            const joySize = rect.width, maxDist = joySize / 2.5;
+            const joyX = rect.left + joySize / 2, joyY = rect.top + joySize / 2;
+            let dx = touch.clientX - joyX, dy = touch.clientY - joyY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > maxDist) { dx = (dx / dist) * maxDist; dy = (dy / dist) * maxDist; }
+            document.getElementById('joystick-handle').style.transform = `translate(${dx}px, ${dy}px)`;
+            if (dist > 5) { joystick.dx = (touch.clientX - joyX) / maxDist; joystick.dy = (touch.clientY - joyY) / maxDist; }
+            else { joystick.dx = 0; joystick.dy = 0;}
+        }, { passive: false });
+        window.addEventListener('touchend', (e) => {
+            let joyTouchEnded = true; // Assume true unless a touch is still active on the joystick
+            for(let i = 0; i < e.touches.length; i++) {
+                 const touch = e.touches[i];
+                 const rect = joystickContainer.getBoundingClientRect();
+                 if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+                    touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+                     joyTouchEnded = false; // A finger is still on the joystick, don't deactivate
+                     break;
+                 }
+            }
+            if(joyTouchEnded) {
+                joystick.active = false; joystick.dx = 0; joystick.dy = 0;
+                document.getElementById('joystick-handle').style.transform = 'translate(0px, 0px)';
+            }
+        });
+        
+        let touchDraggedSlot = null;
+        const inventoryGrid = document.getElementById('inventory-grid');
+        
+        inventoryGrid.addEventListener('touchstart', (e) => {
+             if (e.target.closest('.hotbar-slot') && player.inventory[e.target.closest('.hotbar-slot').dataset.slotIndex]) {
+                 touchDraggedSlot = e.target.closest('.hotbar-slot');
+                 touchDraggedSlot.style.opacity = '0.5';
+             }
+        }, {passive: false});
+
+        inventoryGrid.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+        }, {passive: false});
+
+        inventoryGrid.addEventListener('touchend', (e) => {
+            if (touchDraggedSlot) {
+                touchDraggedSlot.style.opacity = '1';
+                const touch = e.changedTouches[0];
+                const elementUnder = document.elementFromPoint(touch.clientX, touch.clientY);
+                const targetSlot = elementUnder ? elementUnder.closest('.hotbar-slot') : null;
+                
+                if (targetSlot) {
+                    const fromIndex = parseInt(touchDraggedSlot.dataset.slotIndex);
+                    const toIndex = parseInt(targetSlot.dataset.slotIndex);
+                    
+                    const temp = player.inventory[fromIndex];
+                    player.inventory[fromIndex] = player.inventory[toIndex];
+                    player.inventory[toIndex] = temp;
+                    
+                    updateInventoryScreen();
+                }
+                touchDraggedSlot = null;
+            }
+        });
+    }
+    </script>
+</body>
+</html>
+
