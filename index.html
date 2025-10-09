@@ -30,6 +30,7 @@
             position: relative;
             width: 100%;
             height: 100%;
+            transition: transform 1.5s cubic-bezier(0.5, -0.5, 0.5, 1.5); /* For hell animation */
         }
         canvas {
             display: block;
@@ -64,18 +65,42 @@
             box-sizing: border-box;
             pointer-events: auto;
         }
-        #mental-health-bar-container {
+        #health-bars-container {
             flex-grow: 1;
             max-width: 350px;
             padding: 6px;
         }
+        #mental-health-bar-container {
+           width: 100%;
+           height: 16px;
+           background-color: #444;
+           border-radius: 5px;
+           overflow: hidden;
+        }
         #mental-health-bar {
             width: 100%;
-            height: 16px;
+            height: 100%;
             background-color: var(--highlight-color);
             transition: width 0.5s;
             border-radius: 5px;
         }
+        #shield-bar-container {
+           display: none;
+           width: 100%;
+           height: 14px;
+           background-color: #444;
+           border-radius: 5px;
+           margin-top: 4px;
+           overflow: hidden;
+        }
+        #shield-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #00aaff;
+            transition: width 0.5s;
+            border-radius: 5px;
+        }
+
         #clock-container {
             text-align: center;
             font-size: clamp(14px, 4vw, 16px);
@@ -163,6 +188,8 @@
         }
         .dragging {
             opacity: 0.5;
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
         }
         
         /* --- Screens --- */
@@ -192,6 +219,82 @@
             font-family: inherit; font-size: clamp(16px, 5vw, 18px); border-radius: var(--ui-radius);
             margin-top: 10px; text-align: center;
         }
+        
+        /* --- Character Select --- */
+        #character-carousel {
+            display: flex;
+            align-items: center;
+            gap: clamp(20px, 5vw, 40px);
+            width: 100%;
+            height: clamp(280px, 40vh, 320px);
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; /* Firefox */
+            padding: 0 calc(50vw - 110px); /* 110px is half of 220px (max card width) */
+            box-sizing: border-box;
+        }
+        #character-carousel::-webkit-scrollbar {
+            display: none; /* WebKit */
+        }
+        
+        .character-card {
+            flex-shrink: 0;
+            scroll-snap-align: center;
+            position: relative;
+            width: clamp(180px, 40vw, 220px);
+            height: clamp(240px, 35vh, 280px);
+            background-color: var(--slot-bg);
+            border: 3px solid var(--border-color);
+            border-radius: var(--ui-radius);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 15px;
+            box-sizing: border-box;
+            gap: 15px;
+            user-select: none;
+            transform: scale(0.85);
+            transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .character-card.selected {
+            transform: scale(1);
+            border-color: var(--highlight-color);
+            box-shadow: 0 0 15px rgba(255,255,255,0.4);
+        }
+
+        .character-card h3 {
+            margin: 0;
+            text-align: center;
+            font-size: clamp(16px, 4vw, 20px);
+        }
+        .character-card .char-icon {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #character-details {
+            min-height: 80px;
+            max-width: 600px;
+            margin-top: 10px;
+            transition: opacity 0.4s ease; /* Add transition for fade effect */
+        }
+        #character-details h2 {
+             font-size: clamp(20px, 5vw, 24px); margin: 0 0 10px 0; color: var(--highlight-color);
+        }
+        
+        #back-to-main-menu-button {
+            margin-top: 10px;
+            background: transparent;
+            font-size: 14px;
+            padding: 8px 16px;
+            min-width: auto;
+        }
+
 
         /* --- Inventory and Crafting --- */
         #inventory-screen, #chest-screen {
@@ -435,7 +538,7 @@
             100% { opacity: 0; transform: translateY(-20px); }
         }
 
-        /* --- Sleep Animation --- */
+        /* --- Special Effects --- */
         #sleep-overlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -445,7 +548,6 @@
             z-index: 500;
             transition: opacity 1.5s ease-in-out;
         }
-
     </style>
 </head>
 <body>
@@ -458,6 +560,18 @@
         <button id="continue-button" style="display: none;">Продолжить</button>
     </div>
     
+    <div id="character-select-screen" class="screen-overlay" style="display: none;">
+        <h1>Выберите персонажа</h1>
+        <div id="character-carousel">
+            </div>
+        <div id="character-details">
+            <h2 id="char-name"></h2>
+            <p id="char-desc"></p>
+        </div>
+        <button id="confirm-char-button">Выбрать и начать</button>
+        <button id="back-to-main-menu-button">Назад</button>
+    </div>
+
     <div id="prequel-screen" class="screen-overlay" style="display: none;">
         <h1>Предыстория</h1>
         <p style="max-width: 600px; text-align: center;">ТЫ ЧЕЛОВЕК, КОТОРЫЙ НЕ ПОПАЛ НИ В РАЙ, НИ В АД И ОСТАЛСЯ В ЛИМБО СКИТАТЬСЯ ВЕЧНОСТЬ... или пока тебя не настигнет что-то хуже смерти.</p>
@@ -512,8 +626,13 @@
         <div id="sleep-overlay"></div>
         <div id="notification-container"></div>
         <div id="top-bar">
-            <div id="mental-health-bar-container" class="game-ui-element">
-                <div id="mental-health-bar"></div>
+            <div id="health-bars-container" class="game-ui-element">
+                <div id="mental-health-bar-container">
+                    <div id="mental-health-bar"></div>
+                </div>
+                <div id="shield-bar-container">
+                    <div id="shield-bar"></div>
+                </div>
             </div>
              <div style="display: flex; gap: 10px; align-items: flex-start;">
                 <div id="clock-container" class="game-ui-element">
@@ -535,6 +654,7 @@
     <script type="module">
         // --- Game Initialization ---
         const canvas = document.getElementById('game-canvas'); const ctx = canvas.getContext('2d');
+        const gameContainer = document.getElementById('game-container');
         const startScreen = document.getElementById('start-screen'); const gameOverScreen = document.getElementById('game-over-screen');
         const startButton = document.getElementById('start-button'); const restartButton = document.getElementById('restart-button');
         const inventoryScreen = document.getElementById('inventory-screen'); const joystickContainer = document.getElementById('joystick-container');
@@ -545,13 +665,17 @@
         const handbookButton = document.getElementById('handbook-button');
         const handbookCloseButton = document.getElementById('handbook-close-button');
         const chestScreen = document.getElementById('chest-screen');
+        const characterSelectScreen = document.getElementById('character-select-screen');
+        const confirmCharButton = document.getElementById('confirm-char-button');
+        const backToMainMenuButton = document.getElementById('back-to-main-menu-button');
+
         let sleepOverlay;
         
-        const SAVE_KEY = 'limbo_savegame_offline_v2';
+        const SAVE_KEY = 'limbo_savegame_offline_v3'; // Increased version to avoid conflicts
         const today = new Date();
         const isHalloweenEvent = today.getMonth() === 9; // 9 = October (0-indexed)
 
-        const TILE_SIZE = 32, WORLD_WIDTH = 200, WORLD_HEIGHT = 200;
+        const TILE_SIZE = 32, WORLD_WIDTH = 600, WORLD_HEIGHT = 600;
         const MENTAL_HEALTH_DRAIN_RATE = 0.5, ANGEL_HEAL_RADIUS = TILE_SIZE * 4, ANGEL_HEAL_RATE = 15, HUMAN_HEAL_RADIUS = TILE_SIZE * 3, HUMAN_HEAL_RATE = 5;
         const DAY_DURATION_SECONDS = 24 * 60; // 24 minutes
         const PLAYER_STUN_DURATION = 3; 
@@ -568,8 +692,9 @@
         const FLASHLIGHT_CONE_ANGLE = Math.PI / 4; 
         const FLASHLIGHT_DAMAGE = 10; 
         let ENTITY_DESPAWN_RADIUS;
+        let lastJoystickAngle = 0;
 
-        let player, world, entities, camera, joystick = { active: false, x: 0, y: 0, dx: 0, dy: 0 };
+        let player, world, entities, camera, joystick = { active: false, x: 0, y: 0, dx: 0, dy: 0, magnitude: 0 };
         let placedObjects = []; 
         let droppedItems = [];
         let traps = []; 
@@ -608,22 +733,12 @@
             JACK_O_LANTERN: { id: 'JACK_O_LANTERN', name: 'Светильник Джека' },
             DOOR: { id: 'DOOR', name: 'Дверь' },
             CHEST: { id: 'CHEST', name: 'Сундук' },
+            MYSTERIOUS_ARTIFACT: { id: 'MYSTERIOUS_ARTIFACT', name: 'Загадочный артефакт'},
+            BED: { id: 'BED', name: 'Кровать' }
         };
         const TILE_TYPES = { EMPTY: 0, TREE: 1, ROCK: 2, WOOD_BLOCK: 4, STONE_BLOCK: 5, BIRCH: 6, OAK: 7, SAKURA: 8, RUINS_WALL: 9, ARTIFACT_BOX: 10, CANDY_CORN: 11, JACK_O_LANTERN: 12 };
         const ENTITY_TYPES = { SHADOW: 'SHADOW', ANGEL: 'ANGEL', HUMAN: 'HUMAN', MUTANT_HUMAN: 'MUTANT_HUMAN', ARCHANGEL: 'ARCHANGEL', DEMON: 'DEMON', FALSE_ANGEL: 'FALSE_ANGEL' };
-        const RECIPES = [
-            { output: { type: ITEM_TYPES.STONE_AXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.STONE, count: 3 }] },
-            { output: { type: ITEM_TYPES.STONE_PICKAXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.STONE, count: 3 }] },
-            { output: { type: ITEM_TYPES.STONE_SWORD, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.STONE, count: 2 }] },
-            { output: { type: ITEM_TYPES.MENTAL_SALVE, count: 1 }, ingredients: [{ type: ITEM_TYPES.DARK_ORB, count: 1 }, { type: ITEM_TYPES.STONE, count: 5 }] },
-            { output: { type: ITEM_TYPES.DESPAIR_CRYSTAL, count: 1 }, ingredients: [{ type: ITEM_TYPES.ACORN, count: 1 }, { type: ITEM_TYPES.DARK_ORB, count: 2 }, { type: ITEM_TYPES.WOOD, count: 10 }] },
-            { output: { type: ITEM_TYPES.SLEEPING_BAG, count: 1 }, ingredients: [{ type: ITEM_TYPES.SAKURA_PETAL, count: 3 }, { type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.MENTAL_SALVE, count: 1 }] },
-            { output: { type: ITEM_TYPES.CAMPFIRE, count: 1 }, ingredients: [{ type: ITEM_TYPES.STONE, count: 3 }, { type: ITEM_TYPES.WOOD, count: 3 }] },
-            { output: { type: ITEM_TYPES.FLASHLIGHT, count: 1 }, ingredients: [{ type: ITEM_TYPES.LIGHT_ORB, count: 1 }, { type: ITEM_TYPES.TECHNOLOGY_SHARD, count: 2 }] },
-            { output: { type: ITEM_TYPES.ASTRAL_ARTIFACT, count: 1 }, ingredients: [{ type: ITEM_TYPES.TECHNOLOGY_SHARD, count: 3 }, { type: ITEM_TYPES.ANCIENT_CIRCUIT, count: 1 }] },
-            { output: { type: ITEM_TYPES.DOOR, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 6 }] },
-            { output: { type: ITEM_TYPES.CHEST, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 8 }] },
-        ];
+        
         let selectedRecipe = null;
         
         const BIOME_SIZE = 40; 
@@ -674,16 +789,60 @@
             light_orb: [[null, '#ff0', null], ['#ff0', '#fff', '#ff0'], [null, '#ff0', null]],
             candy_corn: [[null, '#ff0', null], ['#f80', '#f80', '#f80'], ['#fff', '#fff', '#fff']],
             jack_o_lantern: [[null, '#282', '#282', null], ['#f80', '#ff0', '#ff0', '#f80'], ['#f80', '#ff0', '#ff0', '#f80'], ['#f80', '#f80', '#f80', '#f80']],
-            door: [['#864', '#a85', '#a85', '#864'],['#864', '#a85', '#c96', '#864'],['#864', '#a85', '#a85', '#864'],['#864', '#a85', '#a85', '#864']],
-            chest: [['#864', '#a85', '#a85', '#864'],['#864', '#333', '#333', '#864'],['#864', '#a85', '#a85', '#864']],
+            door: [['#864', '#975', '#864', '#975'], ['#864', '#975', '#dd0', '#975'], ['#864', '#975', '#864', '#975'], ['#864', '#975', '#864', '#975']],
+            chest: [['#a85', '#c96', '#c96', '#a85'], ['#864', '#643', '#643', '#864'], ['#864', '#a85', '#ff0', '#a85'], ['#864', '#a85', '#a85', '#864']],
+            mysterious_artifact: [['#f0f', '#0ff', '#f0f'], ['#0ff', '#fff', '#0ff'], ['#f0f', '#0ff', '#f0f']],
+            bed: [['#964', '#964', '#964', '#964'],['#964', '#a75', '#a75', '#964'],['#fff', '#ddd', '#ddd', '#fff'],['#964', '#964', '#964', '#964']]
         };
         const drawPixelArtOnCtx = (tCtx, x, y, s, p) => {
+            if (!p) return;
             const pS = s / p.length;
             for (let row = 0; row < p.length; row++) for (let col = 0; col < p[row].length; col++) {
                 if (p[row][col]) { tCtx.fillStyle = p[row][col]; tCtx.fillRect(Math.floor(x + col*pS), Math.floor(y + row*pS), Math.ceil(pS), Math.ceil(pS)); }
             }
         };
         const drawPixelArt = (x, y, size, pixels) => drawPixelArtOnCtx(ctx, x, y, size, pixels);
+        
+        // --- Character Data ---
+        const CHARACTERS = [
+            {
+                id: 'base',
+                name: 'База',
+                description: 'Начинает с базовым набором инструментов: обычная кирка, меч и топор.',
+                items: [ITEM_TYPES.AXE, ITEM_TYPES.PICKAXE, ITEM_TYPES.SWORD],
+                art: art.player
+            },
+            {
+                id: 'pyromancer',
+                name: 'Пироман',
+                description: 'Начинает с костром, каменным мечом и топором. Обожает тепло огня.',
+                items: [{type: ITEM_TYPES.CAMPFIRE, count: 1}, {type: ITEM_TYPES.STONE_SWORD, count: 1}, {type: ITEM_TYPES.STONE_AXE, count: 1}],
+                art: [['#f80', '#f80'],['#c40', '#c40'],['#888', '#888'],['#444', '#444']]
+            },
+            {
+                id: 'survivalist',
+                name: 'Выживалкин',
+                description: 'Начинает с фонариком и каменным мечом. Не боится темноты.',
+                items: [{type: ITEM_TYPES.FLASHLIGHT, count: 1}, {type: ITEM_TYPES.STONE_SWORD, count: 1}],
+                art: [['#dd0', '#dd0'],['#888', '#888'],['#888', '#888'],['#444', '#444']]
+            },
+            {
+                id: 'killer',
+                name: 'Киллер',
+                description: 'Начинает с мощным огненным мечом. Всё ради цели. Ангелы и люди не лечат его.',
+                items: [{type: ITEM_TYPES.FIRE_SWORD, count: 1}],
+                art: [['#c00', '#c00'],['#f00', '#f00'],['#888', '#888'],['#444', '#444']]
+            },
+            {
+                id: 'medic',
+                name: 'Медик',
+                description: 'Способен создавать целебную мазь всего за 1 Орб Света. Знает цену жизни.',
+                items: [ITEM_TYPES.AXE, ITEM_TYPES.PICKAXE], // Give basic tools to not make it too hard
+                art: [['#fff', '#fff'],['#afa', '#afa'],['#888', '#888'],['#444', '#444']]
+            }
+        ];
+        let selectedCharacterId = CHARACTERS[0].id;
+        let currentCharIndex = 0;
         
         // --- Handbook Data ---
         const HANDBOOK_DATA = {
@@ -706,9 +865,11 @@
                 "Меч (Огненный)": { description: "Очень мощный меч. Урон: 25.", art: art.fire_sword },
                 "Целебная мазь": { description: "Восстанавливает 50 ед. рассудка.", art: art.mental_salve },
                 "Спальный мешок": { description: "Позволяет пропустить ночь. Есть шанс кражи.", art: art.sleeping_bag },
+                "Кровать": { description: "Позволяет пропустить 8 часов. Можно использовать 3 раза.", art: art.bed },
                 "Костёр": { description: "Источник света. Восстанавливает рассудок и ускоряет время. Требует дров для горения.", art: art.campfire },
                 "Фонарик": { description: "Освещает область, нанося урон Теням. Урон: 10/сек.", art: art.flashlight },
                 "Астральный артефакт": { description: "Увеличивает скорость и позволяет проходить сквозь стены.", art: art.astral_artifact },
+                "Загадочный артефакт": { description: "Дарует одноразовый магический щит, который поглощает урон.", art: art.mysterious_artifact },
                 "Светильник Джека": { description: "Тыква, найденная во время Хэллоуина. Полностью восстанавливает рассудок.", art: art.jack_o_lantern },
                 "Сундук": { description: "Позволяет хранить предметы. Вмещает 15 стаков.", art: art.chest },
                 "Дверь": { description: "Преграда, через которую может пройти только игрок.", art: art.door },
@@ -728,6 +889,35 @@
                 "Руины": { description: "Остатки древней цивилизации. Здесь можно найти ящики с артефактами.", art: art.ruins_wall },
             }
         };
+
+        function getRecipes() {
+            const baseRecipes = [
+                { output: { type: ITEM_TYPES.STONE_AXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.STONE, count: 3 }] },
+                { output: { type: ITEM_TYPES.STONE_PICKAXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.STONE, count: 3 }] },
+                { output: { type: ITEM_TYPES.STONE_SWORD, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.STONE, count: 2 }] },
+                { output: { type: ITEM_TYPES.MENTAL_SALVE, count: 1 }, ingredients: [{ type: ITEM_TYPES.DARK_ORB, count: 1 }, { type: ITEM_TYPES.STONE, count: 5 }] },
+                { output: { type: ITEM_TYPES.DESPAIR_CRYSTAL, count: 1 }, ingredients: [{ type: ITEM_TYPES.ACORN, count: 1 }, { type: ITEM_TYPES.DARK_ORB, count: 2 }, { type: ITEM_TYPES.WOOD, count: 10 }] },
+                { output: { type: ITEM_TYPES.SLEEPING_BAG, count: 1 }, ingredients: [{ type: ITEM_TYPES.SAKURA_PETAL, count: 3 }, { type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.MENTAL_SALVE, count: 1 }] },
+                { output: { type: ITEM_TYPES.BED, count: 1 }, ingredients: [{ type: ITEM_TYPES.SAKURA_PETAL, count: 3 }, { type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.LIGHT_ORB, count: 1 }] },
+                { output: { type: ITEM_TYPES.CAMPFIRE, count: 1 }, ingredients: [{ type: ITEM_TYPES.STONE, count: 3 }, { type: ITEM_TYPES.WOOD, count: 3 }] },
+                { output: { type: ITEM_TYPES.FLASHLIGHT, count: 1 }, ingredients: [{ type: ITEM_TYPES.LIGHT_ORB, count: 1 }, { type: ITEM_TYPES.TECHNOLOGY_SHARD, count: 2 }] },
+                { output: { type: ITEM_TYPES.ASTRAL_ARTIFACT, count: 1 }, ingredients: [{ type: ITEM_TYPES.TECHNOLOGY_SHARD, count: 3 }, { type: ITEM_TYPES.ANCIENT_CIRCUIT, count: 1 }] },
+                { output: { type: ITEM_TYPES.MYSTERIOUS_ARTIFACT, count: 1 }, ingredients: [
+                    { type: ITEM_TYPES.TECHNOLOGY_SHARD, count: 1 }, 
+                    { type: ITEM_TYPES.DESPAIR_CRYSTAL, count: 1 }, 
+                    { type: ITEM_TYPES.DARK_ORB, count: 1 }, 
+                    { type: ITEM_TYPES.LIGHT_ORB, count: 1 }, 
+                    { type: ITEM_TYPES.FLASHLIGHT, count: 1 }
+                ] },
+                { output: { type: ITEM_TYPES.DOOR, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 6 }] },
+                { output: { type: ITEM_TYPES.CHEST, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 8 }] },
+            ];
+             if (selectedCharacterId === 'medic') {
+                const medicSalveRecipe = { output: { type: ITEM_TYPES.MENTAL_SALVE, count: 1 }, ingredients: [{ type: ITEM_TYPES.LIGHT_ORB, count: 1 }] };
+                return baseRecipes.map(r => r.output.type.id === 'MENTAL_SALVE' ? medicSalveRecipe : r);
+            }
+            return baseRecipes;
+        }
 
         // --- Utility to serialize/deserialize inventory items ---
         function serializeItem(item) {
@@ -767,6 +957,10 @@
                         y: player.y,
                         mentalHealth: player.mentalHealth,
                         inventory: player.inventory.map(serializeItem),
+                        characterId: selectedCharacterId,
+                        shield: player.shield,
+                        maxShield: player.maxShield,
+                        hasShield: player.hasShield
                     },
                     gameTime: gameTime,
                     placedObjects: serializablePlacedObjects,
@@ -791,11 +985,15 @@
             try {
                 const data = JSON.parse(savedDataString);
                 
+                selectedCharacterId = data.player.characterId || 'base';
                 initGame({ loadingSave: true }); 
 
                 player.x = data.player.x;
                 player.y = data.player.y;
                 player.mentalHealth = data.player.mentalHealth;
+                player.shield = data.player.shield || 0;
+                player.maxShield = data.player.maxShield || 100;
+                player.hasShield = data.player.hasShield || false;
                 player.inventory = data.player.inventory.map(deserializeItem);
                 gameTime = data.gameTime;
                 
@@ -832,6 +1030,7 @@
                 }
 
                 startScreen.style.display = 'none';
+                characterSelectScreen.style.display = 'none';
                 updateUI();
                 showNotification("Игра загружена.");
                 return true;
@@ -898,6 +1097,7 @@
             player = { 
                 x: (WORLD_WIDTH * TILE_SIZE) / 2, y: (WORLD_HEIGHT * TILE_SIZE) / 2, 
                 speed: 150, mentalHealth: 100, maxMentalHealth: 100,
+                shield: 0, maxShield: 100, hasShield: false,
                 inventory: Array(21).fill(null), // 20 + 1 drop slot
                 attackCooldown: 0, stunTimer: 0, 
                 pickupCooldown: 0, knockback: {x: 0, y: 0}, isSleeping: false 
@@ -915,9 +1115,21 @@
                 gameTime = DAY_DURATION_SECONDS * 0.25;
                 world = Array(WORLD_WIDTH).fill(0).map(() => Array(WORLD_HEIGHT).fill(TILE_TYPES.EMPTY));
                 generateWorld();
-                addItemToInventory(ITEM_TYPES.AXE);
-                addItemToInventory(ITEM_TYPES.PICKAXE);
-                addItemToInventory(ITEM_TYPES.SWORD);
+                
+                const character = CHARACTERS.find(c => c.id === selectedCharacterId);
+                if (character && character.items) {
+                    character.items.forEach(itemOrType => {
+                        if (itemOrType.type) { // It's an object {type, count}
+                            addItemToInventory(itemOrType.type, itemOrType.count);
+                        } else { // It's just an ITEM_TYPE
+                            addItemToInventory(itemOrType);
+                        }
+                    });
+                } else { // Fallback
+                    addItemToInventory(ITEM_TYPES.AXE);
+                    addItemToInventory(ITEM_TYPES.PICKAXE);
+                    addItemToInventory(ITEM_TYPES.SWORD);
+                }
             }
 
             gameState = 'playing';
@@ -981,7 +1193,7 @@
                 }
             }
 
-            const numRuins = 2 + Math.floor(Math.random() * 2); 
+            const numRuins = 6 + Math.floor(Math.random() * 4); 
             for (let i = 0; i < numRuins; i++) {
                 const ruinX = Math.floor(Math.random() * (WORLD_WIDTH - 20)) + 10;
                 const ruinY = Math.floor(Math.random() * (WORLD_HEIGHT - 20)) + 10;
@@ -1020,12 +1232,34 @@
             if (gameState === 'start') return;
             const deltaTime = (timestamp - lastTime) / 1000;
             lastTime = timestamp;
-            if (gameState !== 'paused' && gameState !== 'sleeping') update(deltaTime);
+
+            if (gameState !== 'paused' && gameState !== 'sleeping') {
+                update(deltaTime);
+            }
+            
             draw();
             if (gameState !== 'game_over') requestAnimationFrame(gameLoop);
         }
         
-        // --- State Update ---
+        // --- Damage and State Update ---
+        function damagePlayer(amount) {
+            if (player.hasShield && player.shield > 0) {
+                const shieldDamage = Math.min(amount, player.shield);
+                player.shield -= shieldDamage;
+                amount -= shieldDamage;
+
+                if (player.shield <= 0) {
+                    player.hasShield = false; // Shield is broken permanently
+                    document.getElementById('shield-bar-container').style.display = 'none';
+                    showNotification("Ваш щит сломан!");
+                }
+            }
+            
+            if (amount > 0) {
+                player.mentalHealth -= amount;
+            }
+        }
+        
         function update(dt) {
             if (player.pickupCooldown > 0) player.pickupCooldown -= dt;
 
@@ -1069,10 +1303,18 @@
                     let dx = 0, dy = 0;
                     if (keys['w'] || keys['ArrowUp']) dy -= 1; if (keys['s'] || keys['ArrowDown']) dy += 1;
                     if (keys['a'] || keys['ArrowLeft']) dx -= 1; if (keys['d'] || keys['ArrowRight']) dx += 1;
-                    if (joystick.active) { dx += joystick.dx; dy += joystick.dy; }
+                    
+                    if (joystick.active) {
+                        dx += joystick.dx;
+                        dy += joystick.dy;
+                    }
+
                     if (dx !== 0 || dy !== 0) {
-                        const mag = Math.sqrt(dx*dx + dy*dy);
-                        const moveX = (dx / mag) * currentSpeed * dt, moveY = (dy / mag) * currentSpeed * dt;
+                        const mag = Math.sqrt(dx * dx + dy * dy);
+                        const moveMagnitude = Math.min(mag, 1.0); // Cap magnitude at 1
+                        const moveX = (dx / mag) * moveMagnitude * currentSpeed * dt;
+                        const moveY = (dy / mag) * moveMagnitude * currentSpeed * dt;
+                        
                         const nextX = player.x + moveX, nextY = player.y + moveY;
                         const nextGridX = Math.floor(nextX / TILE_SIZE);
                         const nextGridY = Math.floor(nextY / TILE_SIZE);
@@ -1100,7 +1342,7 @@
                         player.stunTimer = PLAYER_STUN_DURATION;
                         showNotification("Вы попали в капкан!");
                     } else if (trap.type === 'TRIPWIRE') {
-                        player.mentalHealth -= 30;
+                        damagePlayer(30);
                         showNotification("Вы задели растяжку!");
                     }
                     traps.splice(i, 1);
@@ -1108,7 +1350,7 @@
                 }
             }
 
-            player.mentalHealth -= MENTAL_HEALTH_DRAIN_RATE * dt;
+            damagePlayer(MENTAL_HEALTH_DRAIN_RATE * dt);
             
             updatePlacedObjects(dt);
             updateDroppedItems();
@@ -1219,9 +1461,9 @@
                     projectiles.splice(i, 1);
                     continue;
                 }
-
+                
                 if (Math.hypot(p.x - player.x, p.y - player.y) < TILE_SIZE * 0.75) {
-                    player.mentalHealth -= p.damage;
+                    damagePlayer(p.damage);
                     projectiles.splice(i, 1);
                     continue;
                 }
@@ -1230,14 +1472,18 @@
 
         function getFlashlightAngle() {
             if (joystick.active && (joystick.dx !== 0 || joystick.dy !== 0)) {
-                return Math.atan2(joystick.dy, joystick.dx);
+                lastJoystickAngle = Math.atan2(joystick.dy, joystick.dx);
+                return lastJoystickAngle;
             }
-            return Math.atan2(mousePos.y - canvas.height / 2, mousePos.x - canvas.width / 2);
+            if (!isTouchDevice()) {
+                 return Math.atan2(mousePos.y - canvas.height / 2, mousePos.x - canvas.width / 2);
+            }
+            return lastJoystickAngle;
         }
 
         function handleFlashlight(dt) {
             const selectedItem = player.inventory[selectedHotbarSlot];
-            if (!selectedItem || selectedItem.type !== ITEM_TYPES.FLASHLIGHT || gameState !== 'playing') {
+            if (!selectedItem || selectedItem.type !== ITEM_TYPES.FLASHLIGHT || gameState === 'paused' || gameState === 'sleeping') {
                 return;
             }
 
@@ -1275,7 +1521,7 @@
                     else if (e.type === ENTITY_TYPES.ANGEL) {
                         addItemToInventory(ITEM_TYPES.LIGHT_ORB, 1);
                         showNotification("+1 Орб Света");
-                        if (e.lastDamageSource === 'player') player.mentalHealth *= 0.5;
+                        if (e.lastDamageSource === 'player') damagePlayer(25);
                     }
                     else if (e.type === ENTITY_TYPES.HUMAN && !e.isBoss) {
                         const stoneTools = [ITEM_TYPES.STONE_AXE, ITEM_TYPES.STONE_PICKAXE, ITEM_TYPES.STONE_SWORD];
@@ -1338,7 +1584,7 @@
                         moveX = Math.cos(e.angle) * e.speed * dt; moveY = Math.sin(e.angle) * e.speed * dt;
                         
                         if (e.type === ENTITY_TYPES.ANGEL) {
-                            if (Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS) {
+                            if (selectedCharacterId !== 'killer' && Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS) {
                                 player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + ANGEL_HEAL_RATE * dt);
                             }
                             entities.forEach(shadow => {
@@ -1348,10 +1594,10 @@
                                 }
                             });
                         } else if (e.type === ENTITY_TYPES.FALSE_ANGEL) {
-                             if (Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS) player.mentalHealth -= 30 * dt;
+                             if (Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS) damagePlayer(30 * dt);
                         }
                         
-                        if (e.type === ENTITY_TYPES.HUMAN && Math.hypot(e.x - player.x, e.y - player.y) < HUMAN_HEAL_RADIUS) {
+                        if (e.type === ENTITY_TYPES.HUMAN && !e.aggressive && selectedCharacterId !== 'killer' && Math.hypot(e.x - player.x, e.y - player.y) < HUMAN_HEAL_RADIUS) {
                              player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + HUMAN_HEAL_RATE * dt);
                         }
                     }
@@ -1371,7 +1617,7 @@
                             e.attackCooldown = 3.5;
                         }
                         else if (e.type === ENTITY_TYPES.MUTANT_HUMAN && distToPlayer < TILE_SIZE * 2) {
-                            player.mentalHealth -= e.damage * 2;
+                            damagePlayer(e.damage * 2);
                             const angle = Math.atan2(player.y - e.y, player.x - e.x);
                             player.knockback.x = Math.cos(angle) * 500;
                             player.knockback.y = Math.sin(angle) * 500;
@@ -1388,7 +1634,7 @@
                         }
                     } 
                     else if (((e.type === ENTITY_TYPES.HUMAN && e.aggressive) || e.type === ENTITY_TYPES.SHADOW) && distToPlayer < TILE_SIZE * 1.5) {
-                        player.mentalHealth -= e.damage;
+                        damagePlayer(e.damage);
                         e.attackCooldown = 1.5;
                     }
                 }
@@ -1470,8 +1716,8 @@
         }
         function spawnEntity(type, spawnX, spawnY, saveData = null) {
             const angle = Math.random() * Math.PI * 2, radius = Math.max(canvas.width, canvas.height);
-            const x = saveData ? saveData.x : (spawnX ?? player.x + Math.cos(angle) * radius);
-            const y = saveData ? saveData.y : (spawnY ?? player.y + Math.sin(angle) * radius);
+            let x = saveData ? saveData.x : (spawnX ?? player.x + Math.cos(angle) * radius);
+            let y = saveData ? saveData.y : (spawnY ?? player.y + Math.sin(angle) * radius);
             
             let baseHealth = 100;
             if (type === ENTITY_TYPES.SHADOW) baseHealth = 20;
@@ -1500,16 +1746,19 @@
         
         // --- Rendering ---
         function draw() {
-            if (!world || !player) return;
+            if (!player || !world) return;
+
             const hour = Math.floor((gameTime % DAY_DURATION_SECONDS) / (DAY_DURATION_SECONDS / 24));
             const isNight = hour >= 20 || hour < 5;
             const lightLevel = isNight ? 0.4 : 1.0;
             canvas.style.filter = `brightness(${lightLevel})`;
-
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
             camera.x = player.x - canvas.width / 2; camera.y = player.y - canvas.height / 2;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+
             const startCol = Math.floor(camera.x / TILE_SIZE), endCol = startCol + Math.ceil(canvas.width / TILE_SIZE) + 1;
             const startRow = Math.floor(camera.y / TILE_SIZE), endRow = startRow + Math.ceil(canvas.height / TILE_SIZE) + 1;
+           
             for (let x = startCol; x < endCol; x++) for (let y = startRow; y < endRow; y++) {
                 if (x < 0 || y < 0 || x >= WORLD_WIDTH || y >= WORLD_HEIGHT) continue;
                 const tile = world[x]?.[y], dX = x * TILE_SIZE - camera.x, dY = y * TILE_SIZE - camera.y;
@@ -1533,17 +1782,11 @@
             });
 
             droppedItems.forEach(dItem => {
-                const dX = dItem.x - camera.x;
-                const dY = dItem.y - camera.y;
+                const dX = dItem.x - camera.x; const dY = dItem.y - camera.y;
                 const itemSize = TILE_SIZE * 0.6;
-
                 let artKey = Object.keys(ITEM_TYPES).find(key => ITEM_TYPES[key].id === dItem.item.type.id)?.toLowerCase();
-                if (dItem.item.type.id === 'WOOD') artKey = 'wood_block';
-                if (dItem.item.type.id === 'STONE') artKey = 'stone_block';
-                
-                if (art[artKey]) {
-                    drawPixelArt(dX - itemSize / 2, dY - itemSize / 2, itemSize, art[artKey]);
-                }
+                if (dItem.item.type.id === 'WOOD') artKey = 'wood_block'; if (dItem.item.type.id === 'STONE') artKey = 'stone_block';
+                if (art[artKey]) { drawPixelArt(dX - itemSize / 2, dY - itemSize / 2, itemSize, art[artKey]); }
             });
 
             placedObjects.forEach(obj => {
@@ -1563,19 +1806,22 @@
                     }
                 } else if (obj.type === 'DOOR') {
                     drawPixelArt(dX - TILE_SIZE/2, dY - TILE_SIZE/2, TILE_SIZE, art.door);
-                    if (!obj.isOpen) {
-                        ctx.fillStyle = 'rgba(0,0,0,0.3)';
-                        ctx.fillRect(dX - TILE_SIZE/2, dY - TILE_SIZE/2, TILE_SIZE, TILE_SIZE);
-                    }
+                    if (!obj.isOpen) { ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(dX - TILE_SIZE/2, dY - TILE_SIZE/2, TILE_SIZE, TILE_SIZE); }
                 } else if (obj.type === 'CHEST') {
                     drawPixelArt(dX - TILE_SIZE/2, dY - TILE_SIZE/2, TILE_SIZE, art.chest);
+                } else if (obj.type === 'BED') {
+                    drawPixelArt(dX - TILE_SIZE/2, dY - TILE_SIZE/2, TILE_SIZE, art.bed);
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '12px "Courier New"';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`Uses: ${obj.uses}`, dX, dY + TILE_SIZE);
                 }
             });
 
             entities.forEach(e => {
                 if (!e) return;
                 const dX = e.x - camera.x, dY = e.y - camera.y;
-                const size = e.isBoss ? TILE_SIZE * 2.5 : TILE_SIZE;
+                let size = e.isBoss ? TILE_SIZE * 2.5 : TILE_SIZE;
                 
                 if (e.type === ENTITY_TYPES.SHADOW) drawPixelArt(dX - size / 2, dY - size / 2, size, art.shadow(Math.random() > 0.5));
                 else if (e.type === ENTITY_TYPES.ANGEL) { ctx.beginPath(); ctx.arc(dX, dY, ANGEL_HEAL_RADIUS, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255, 255, 255, 0.05)'; ctx.fill(); drawPixelArt(dX - TILE_SIZE / 2, dY - TILE_SIZE / 2, TILE_SIZE, art.angel(Math.random() > 0.5)); }
@@ -1589,34 +1835,43 @@
                 else if (e.type === ENTITY_TYPES.ARCHANGEL) drawPixelArt(dX - size / 2, dY - size / 2, size, art.archangel);
                 else if (e.type === ENTITY_TYPES.DEMON) drawPixelArt(dX - size / 2, dY - size / 2, size, art.demon);
 
+
                 if (e.hitTimer > 0) {
                     ctx.fillStyle = 'rgba(255, 50, 50, 0.6)';
                     ctx.fillRect(dX - size / 2, dY - size / 2, size, size);
                 }
             });
             
+            let p_dX = player.x - camera.x;
+            let p_dY = player.y - camera.y;
+
             if(player.stunTimer > 0) {
                 ctx.fillStyle = "rgba(255, 255, 100, 0.3)";
                 ctx.beginPath();
-                ctx.arc(canvas.width / 2, canvas.height / 2, TILE_SIZE, 0, Math.PI * 2);
+                ctx.arc(p_dX, p_dY, TILE_SIZE, 0, Math.PI * 2);
                 ctx.fill();
             }
             
+            const characterArt = (CHARACTERS.find(c => c.id === selectedCharacterId) || CHARACTERS[0]).art;
+            
             if (player.isSleeping) {
-                 drawPixelArt(canvas.width/2 - TILE_SIZE/2, canvas.height/2 - TILE_SIZE/2, TILE_SIZE, art.player_sleeping);
+                 drawPixelArt(p_dX - TILE_SIZE/2, p_dY - TILE_SIZE/2, TILE_SIZE, art.player_sleeping);
             } else {
-                 drawPixelArt(canvas.width/2 - TILE_SIZE/2, canvas.height/2 - TILE_SIZE/2, TILE_SIZE, art.player);
+                 drawPixelArt(p_dX - TILE_SIZE/2, p_dY - TILE_SIZE/2, TILE_SIZE, characterArt);
             }
             
             const selectedItem = player.inventory[selectedHotbarSlot];
             
             if (selectedItem && selectedItem.type === ITEM_TYPES.FLASHLIGHT && gameState === 'playing') {
                 const angle = getFlashlightAngle();
-                const pX = canvas.width / 2, pY = canvas.height / 2;
                 ctx.fillStyle = 'rgba(255, 255, 220, 0.15)';
-                ctx.beginPath(); ctx.moveTo(pX, pY);
-                ctx.arc(pX, pY, FLASHLIGHT_RANGE, angle - FLASHLIGHT_CONE_ANGLE / 2, angle + FLASHLIGHT_CONE_ANGLE / 2);
-                ctx.lineTo(pX, pY); ctx.fill();
+                ctx.save();
+                ctx.translate(p_dX, p_dY);
+                ctx.rotate(angle);
+                ctx.beginPath(); ctx.moveTo(0,0);
+                ctx.arc(0, 0, FLASHLIGHT_RANGE, -FLASHLIGHT_CONE_ANGLE / 2, FLASHLIGHT_CONE_ANGLE / 2);
+                ctx.lineTo(0,0); ctx.fill();
+                ctx.restore();
             }
 
             if (selectedItem && gameState === 'playing' && !player.isSleeping) {
@@ -1625,8 +1880,8 @@
                 if (selectedItem.type.id === 'STONE') artKey = 'stone_block';
                 if (art[artKey]) {
                     const itemSize = TILE_SIZE * 0.7;
-                    const itemX = canvas.width / 2 + TILE_SIZE * 0.1;
-                    const itemY = canvas.height / 2 - TILE_SIZE * 0.1;
+                    const itemX = p_dX + TILE_SIZE * 0.1;
+                    const itemY = p_dY - TILE_SIZE * 0.1;
                     drawPixelArt(itemX, itemY, itemSize, art[artKey]);
                 }
             }
@@ -1653,6 +1908,15 @@
         function updateUI() {
             if(!player) return;
             document.getElementById('mental-health-bar').style.width = `${(player.mentalHealth / player.maxMentalHealth) * 100}%`;
+            
+            const shieldBarContainer = document.getElementById('shield-bar-container');
+            if(player.hasShield && player.shield > 0) {
+                shieldBarContainer.style.display = 'block';
+                document.getElementById('shield-bar').style.width = `${(player.shield / player.maxShield) * 100}%`;
+            } else {
+                shieldBarContainer.style.display = 'none';
+            }
+
             const day = Math.floor(gameTime / DAY_DURATION_SECONDS) + 1;
             const timeInDay = gameTime % DAY_DURATION_SECONDS;
             const hour = Math.floor(timeInDay / (DAY_DURATION_SECONDS / 24));
@@ -1764,7 +2028,8 @@
         function updateRecipeList() {
             const recipeList = document.getElementById('recipe-list');
             recipeList.innerHTML = '';
-            RECIPES.forEach((recipe, index) => {
+            const availableRecipes = getRecipes();
+            availableRecipes.forEach((recipe, index) => {
                 const li = document.createElement('li');
                 li.textContent = `${recipe.output.type.name} x${recipe.output.count}`;
                 li.dataset.recipeIndex = index;
@@ -1821,6 +2086,13 @@
             const targetInventory = player.inventory;
             const inventorySize = targetInventory.length -1; // Exclude drop slot
             if (itemType.durability) {
+                // Special case for flashlight in mysterious artifact recipe
+                if (itemType.id === 'MYSTERIOUS_ARTIFACT') {
+                    const flashlight = targetInventory.find(item => item && item.type.id === 'FLASHLIGHT');
+                    if (flashlight) {
+                         removeItemFromInventory(targetInventory, ITEM_TYPES.FLASHLIGHT, 1);
+                    }
+                }
                 for (let i = 0; i < inventorySize; i++) {
                     if (!targetInventory[i]) {
                         targetInventory[i] = {
@@ -1850,14 +2122,25 @@
             return false;
         }
         function removeItemFromInventory(inventory, itemType, count) {
-            for (let i = inventory.length - 1; i >= 0; i--) {
-                if (count <= 0) break;
-                const item = inventory[i];
-                if (item && item.type.id === itemType.id) {
-                    const toRemove = Math.min(count, item.count);
-                    item.count -= toRemove;
-                    count -= toRemove;
-                    if (item.count <= 0) inventory[i] = null;
+            if (itemType.durability) { // Handle tools like flashlight
+                for (let i = 0; i < inventory.length; i++) {
+                    if (count <= 0) break;
+                    const item = inventory[i];
+                    if (item && item.type.id === itemType.id) {
+                        inventory[i] = null;
+                        count--;
+                    }
+                }
+            } else { // Handle stackable items
+                for (let i = inventory.length - 1; i >= 0; i--) {
+                    if (count <= 0) break;
+                    const item = inventory[i];
+                    if (item && item.type.id === itemType.id) {
+                        const toRemove = Math.min(count, item.count);
+                        item.count -= toRemove;
+                        count -= toRemove;
+                        if (item.count <= 0) inventory[i] = null;
+                    }
                 }
             }
             return count <= 0;
@@ -1912,6 +2195,41 @@
             }, 500);
         }
 
+        function useBed(bedObject) {
+            if (gameState !== 'playing' || !bedObject || bedObject.uses <= 0) return;
+
+            gameState = 'sleeping';
+            player.isSleeping = true;
+            
+            setTimeout(() => {
+                sleepOverlay.style.opacity = '1';
+                setTimeout(() => {
+                    // Advance time by 8 hours
+                    gameTime += (DAY_DURATION_SECONDS / 24) * 8;
+                    
+                    bedObject.uses--;
+                    
+                    if (bedObject.uses <= 0) {
+                        const index = placedObjects.findIndex(obj => obj === bedObject);
+                        if (index > -1) {
+                            placedObjects.splice(index, 1);
+                        }
+                        showNotification("Кровать сломалась.");
+                    } else {
+                        showNotification("Вы отдохнули.");
+                    }
+
+                    sleepOverlay.style.opacity = '0';
+                    
+                    setTimeout(() => {
+                        player.isSleeping = false;
+                        gameState = 'playing';
+                    }, 1500);
+
+                }, 1500);
+            }, 500);
+        }
+
         function handleInteraction(clientX, clientY) {
             if (gameState !== 'playing' || player.attackCooldown > 0 || player.stunTimer > 0) return;
             if (isTouchDevice()) {
@@ -1936,6 +2254,10 @@
                         toggleChestScreen(obj);
                         return;
                     }
+                     if (obj.type === 'BED') {
+                        useBed(obj);
+                        return;
+                    }
                     if (obj.type === 'CAMPFIRE' && selectedItem && selectedItem.type === ITEM_TYPES.WOOD) {
                          if (obj.fuel < MAX_CAMPFIRE_FUEL) {
                             obj.fuel = Math.min(MAX_CAMPFIRE_FUEL, obj.fuel + CAMPFIRE_FUEL_PER_WOOD);
@@ -1955,6 +2277,18 @@
                 if (selectedItem.type === ITEM_TYPES.MENTAL_SALVE) { player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + 50); removeItemFromInventory(player.inventory, ITEM_TYPES.MENTAL_SALVE, 1); player.attackCooldown = 0.5; return; }
                 if (selectedItem.type === ITEM_TYPES.CANDY_CORN) { player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + 10); removeItemFromInventory(player.inventory, ITEM_TYPES.CANDY_CORN, 1); player.attackCooldown = 0.2; return; }
                 if (selectedItem.type === ITEM_TYPES.JACK_O_LANTERN) { player.mentalHealth = player.maxMentalHealth; removeItemFromInventory(player.inventory, ITEM_TYPES.JACK_O_LANTERN, 1); player.attackCooldown = 0.5; return; }
+                if (selectedItem.type === ITEM_TYPES.MYSTERIOUS_ARTIFACT) {
+                     if (!player.hasShield && player.shield <= 0) {
+                        player.hasShield = true;
+                        player.shield = player.maxShield;
+                        showNotification("Вы чувствуете, как магическая энергия окутывает вас щитом!");
+                        removeItemFromInventory(player.inventory, ITEM_TYPES.MYSTERIOUS_ARTIFACT, 1);
+                        player.attackCooldown = 1;
+                    } else {
+                        showNotification("Артефакт больше не реагирует.");
+                    }
+                    return;
+                }
 
                 if (selectedItem.type === ITEM_TYPES.DESPAIR_CRYSTAL) {
                     let nearestAngel = null, minDist = Infinity;
@@ -1983,7 +2317,7 @@
                         didAttack = true;
                         if (e.health > 0) { 
                             if (e.type === ENTITY_TYPES.HUMAN && !e.isBoss) { e.aggressive = true; e.aggressionTimer = 30; } 
-                            else if (e.type === ENTITY_TYPES.ANGEL) { player.mentalHealth *= 0.9; } 
+                            else if (e.type === ENTITY_TYPES.ANGEL) { damagePlayer(10); } 
                         }
                     }
                 });
@@ -2036,6 +2370,10 @@
                         else if (selectedItem.type === ITEM_TYPES.CHEST && countItems(ITEM_TYPES.CHEST) > 0) {
                              placedObjects.push({ type: 'CHEST', x: newObjX, y: newObjY, inventory: Array(15).fill(null) });
                              removeItemFromInventory(player.inventory, ITEM_TYPES.CHEST, 1);
+                        }
+                         else if (selectedItem.type === ITEM_TYPES.BED && countItems(ITEM_TYPES.BED) > 0) {
+                             placedObjects.push({ type: 'BED', x: newObjX, y: newObjY, uses: 3 });
+                             removeItemFromInventory(player.inventory, ITEM_TYPES.BED, 1);
                         }
                     }
                 }
@@ -2098,8 +2436,77 @@
             }
         }
         
+        // --- Character Select Logic ---
+        function populateCharacterCards() {
+            const container = document.getElementById('character-carousel');
+            container.innerHTML = '';
+            CHARACTERS.forEach((char, index) => {
+                const card = document.createElement('div');
+                card.className = 'character-card';
+                card.dataset.charId = char.id;
+                card.dataset.charIndex = index;
+                card.innerHTML = `
+                    <h3>${char.name}</h3>
+                    <div class="char-icon"></div>
+                `;
+                const iconCanvas = document.createElement('canvas');
+                iconCanvas.width = iconCanvas.height = 80;
+                const iconCtx = iconCanvas.getContext('2d');
+                iconCtx.imageSmoothingEnabled = false;
+                drawPixelArtOnCtx(iconCtx, 0, 0, 80, char.art);
+                card.querySelector('.char-icon').appendChild(iconCanvas);
+                container.appendChild(card);
+            });
+        }
+
+        function setupCarouselObserver() {
+            const carousel = document.getElementById('character-carousel');
+            const cards = carousel.querySelectorAll('.character-card');
+            let scrollTimeout;
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if(entry.isIntersecting) {
+                        const intersectingIndex = parseInt(entry.target.dataset.charIndex);
+                        if (intersectingIndex !== currentCharIndex) {
+                            updateCharacterSelectionVisuals(intersectingIndex);
+                        }
+                    }
+                });
+            }, { root: carousel, threshold: 0.6 });
+
+            cards.forEach(card => observer.observe(card));
+            
+            // Initial setup
+            updateCharacterSelectionVisuals(0);
+        }
+
+        function updateCharacterSelectionVisuals(newIndex) {
+            currentCharIndex = newIndex;
+            const carousel = document.getElementById('character-carousel');
+            const cards = carousel.querySelectorAll('.character-card');
+
+            cards.forEach((card, index) => {
+                card.classList.toggle('selected', index === newIndex);
+            });
+
+            // Update details text with a fade effect
+            const details = document.getElementById('character-details');
+            details.style.opacity = '0';
+            setTimeout(() => {
+                const char = CHARACTERS[currentCharIndex];
+                if (!char) return;
+                selectedCharacterId = char.id;
+                document.getElementById('char-name').textContent = char.name;
+                document.getElementById('char-desc').textContent = char.description;
+                details.style.opacity = '1';
+            }, 150);
+        }
+        
         // --- Event Listeners ---
-        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('resize', () => {
+             resizeCanvas();
+        });
         window.addEventListener('keydown', (e) => {
             if (gameState === 'start' || gameState === 'game_over') return;
             const key = e.key.toLowerCase();
@@ -2127,8 +2534,24 @@
         canvas.addEventListener('mousedown', (e) => { if (e.button === 0) handleInteraction(e.clientX, e.clientY); });
         canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
         
-        startButton.addEventListener('click', () => { startScreen.style.display = 'none'; initGame(); });
-        restartButton.addEventListener('click', () => { initGame(); });
+        startButton.addEventListener('click', () => { 
+            startScreen.style.display = 'none'; 
+            characterSelectScreen.style.display = 'flex';
+            populateCharacterCards();
+            setTimeout(setupCarouselObserver, 0); // Allow DOM to update
+        });
+        restartButton.addEventListener('click', () => { 
+            location.reload();
+        });
+        confirmCharButton.addEventListener('click', () => {
+            characterSelectScreen.style.display = 'none';
+            initGame();
+        });
+        backToMainMenuButton.addEventListener('click', () => {
+             characterSelectScreen.style.display = 'none';
+             startScreen.style.display = 'flex';
+        });
+        
         prequelButton.addEventListener('click', () => { startScreen.style.display = 'none'; prequelScreen.style.display = 'flex'; });
         backFromPrequelButton.addEventListener('click', () => { prequelScreen.style.display = 'none'; startScreen.style.display = 'flex'; });
         handbookButton.addEventListener('click', toggleHandbook);
@@ -2140,7 +2563,11 @@
         }
         continueButton.addEventListener('click', () => {
             if (!loadGame()) {
-                initGame();
+                // if load fails, show char select
+                startScreen.style.display = 'none'; 
+                characterSelectScreen.style.display = 'flex';
+                populateCharacterCards();
+                setTimeout(setupCarouselObserver, 0);
             }
         });
         window.addEventListener('beforeunload', (e) => {
@@ -2245,11 +2672,23 @@
                 const joyX = rect.left + joySize / 2, joyY = rect.top + joySize / 2;
                 let dx = touch.clientX - joyX, dy = touch.clientY - joyY;
                 const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist > maxDist) { dx = (dx / dist) * maxDist; dy = (dy / dist) * maxDist; }
+                
+                if (dist > maxDist) {
+                    dx = (dx / dist) * maxDist;
+                    dy = (dy / dist) * maxDist;
+                }
+                
                 document.getElementById('joystick-handle').style.transform = `translate(${dx}px, ${dy}px)`;
-                if (dist > 5) { joystick.dx = (touch.clientX - joyX) / maxDist; joystick.dy = (touch.clientY - joyY) / maxDist; }
-                else { joystick.dx = 0; joystick.dy = 0;}
+                
+                if (dist > 5) {
+                    joystick.dx = dx / maxDist;
+                    joystick.dy = dy / maxDist;
+                } else {
+                    joystick.dx = 0;
+                    joystick.dy = 0;
+                }
             }, { passive: false });
+
             window.addEventListener('touchend', (e) => {
                 let joyTouchEnded = true; 
                 for(let i = 0; i < e.touches.length; i++) {
@@ -2268,6 +2707,7 @@
             });
             
             let touchDraggedSlot = null;
+            let touchDragGhost = null;
             const inventoryContainer = document.getElementById('inventory-screen');
             const chestContainer = document.getElementById('chest-screen');
             
@@ -2279,7 +2719,19 @@
                     const inventory = fromInventoryType === 'player' ? player.inventory : activeChest.inventory;
                      if(inventory && inventory[index]) {
                          touchDraggedSlot = slot;
-                         touchDraggedSlot.style.opacity = '0.5';
+                         slot.style.opacity = '0.5';
+
+                         touchDragGhost = slot.cloneNode(true);
+                         touchDragGhost.style.position = 'absolute';
+                         touchDragGhost.style.zIndex = '1000';
+                         touchDragGhost.style.pointerEvents = 'none';
+                         touchDragGhost.style.width = slot.offsetWidth + 'px';
+                         touchDragGhost.style.height = slot.offsetHeight + 'px';
+                         touchDragGhost.style.opacity = '0.8';
+                         document.body.appendChild(touchDragGhost);
+                         const touch = e.touches[0];
+                         touchDragGhost.style.left = (touch.clientX - slot.offsetWidth / 2) + 'px';
+                         touchDragGhost.style.top = (touch.clientY - slot.offsetHeight / 2) + 'px';
                      }
                  }
             };
@@ -2318,18 +2770,25 @@
                     
                     if(inventoryContainer.style.display === 'flex') updateInventoryScreen();
                     if(chestContainer.style.display === 'flex') updateChestScreen();
-                    touchDraggedSlot = null;
                 }
+                if (touchDragGhost) {
+                    touchDragGhost.remove();
+                    touchDragGhost = null;
+                }
+                touchDraggedSlot = null;
             };
 
             const touchMoveHandler = (e) => {
-                if (touchDraggedSlot) {
+                if (touchDraggedSlot && touchDragGhost) {
                     e.preventDefault();
+                    const touch = e.touches[0];
+                    touchDragGhost.style.left = (touch.clientX - touchDragGhost.offsetWidth / 2) + 'px';
+                    touchDragGhost.style.top = (touch.clientY - touchDragGhost.offsetHeight / 2) + 'px';
                 }
             };
             
             const setupTouchListeners = (container) => {
-                container.addEventListener('touchstart', touchStartHandler, {passive: true});
+                container.addEventListener('touchstart', touchStartHandler, {passive: false});
                 container.addEventListener('touchend', touchEndHandler);
                 container.addEventListener('touchmove', touchMoveHandler, { passive: false });
             };
@@ -2340,4 +2799,3 @@
     </script>
 </body>
 </html>
-
