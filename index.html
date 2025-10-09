@@ -671,7 +671,7 @@
 
         let sleepOverlay;
         
-        const SAVE_KEY = 'limbo_savegame_offline_v3'; // Increased version to avoid conflicts
+        const SAVE_KEY = 'limbo_savegame_offline_v5'; // Increased version to avoid conflicts
         const today = new Date();
         const isHalloweenEvent = today.getMonth() === 9; // 9 = October (0-indexed)
 
@@ -681,6 +681,9 @@
         const PLAYER_STUN_DURATION = 3; 
         const ANGEL_SHADOW_DAMAGE = 15;
         const CAMPFIRE_SHADOW_DAMAGE = 25;
+        const BERRY_GROWTH_TIME = 120; // 120 seconds to grow berries
+        const VOID_AURA_RADIUS = TILE_SIZE * 6;
+        const VOID_AURA_DAMAGE = 20;
 
         const CAMPFIRE_FUEL_PER_WOOD = 300; // seconds
         const MAX_CAMPFIRE_FUEL = CAMPFIRE_FUEL_PER_WOOD * 10;
@@ -696,6 +699,7 @@
 
         let player, world, entities, camera, joystick = { active: false, x: 0, y: 0, dx: 0, dy: 0, magnitude: 0 };
         let placedObjects = []; 
+        let growableObjects = [];
         let droppedItems = [];
         let traps = []; 
         let projectiles = []; 
@@ -711,12 +715,14 @@
             AXE: { id: 'AXE', name: 'Топор', durability: 50 }, 
             PICKAXE: { id: 'PICKAXE', name: 'Кирка', durability: 50 }, 
             SWORD: { id: 'SWORD', name: 'Меч', durability: 75 },
+            SICKLE: { id: 'SICKLE', name: 'Серп', durability: 75 },
             STONE_AXE: { id: 'STONE_AXE', name: 'Кам. топор', durability: 100 }, 
             STONE_PICKAXE: { id: 'STONE_PICKAXE', name: 'Кам. кирка', durability: 100 },
             STONE_SWORD: { id: 'STONE_SWORD', name: 'Кам. меч', durability: 150 },
             FIRE_AXE: { id: 'FIRE_AXE', name: 'Огненный топор', durability: 250 }, 
             FIRE_PICKAXE: { id: 'FIRE_PICKAXE', name: 'Огненная кирка', durability: 250 }, 
             FIRE_SWORD: { id: 'FIRE_SWORD', name: 'Огненный меч', durability: 300 },
+            FIRE_SICKLE: { id: 'FIRE_SICKLE', name: 'Огненный серп', durability: 150 },
             DARK_ORB: { id: 'DARK_ORB', name: 'Шар Тьмы' }, 
             MENTAL_SALVE: { id: 'MENTAL_SALVE', name: 'Целебная мазь' },
             ACORN: { id: 'ACORN', name: 'Жёлудь' },
@@ -734,10 +740,12 @@
             DOOR: { id: 'DOOR', name: 'Дверь' },
             CHEST: { id: 'CHEST', name: 'Сундук' },
             MYSTERIOUS_ARTIFACT: { id: 'MYSTERIOUS_ARTIFACT', name: 'Загадочный артефакт'},
-            BED: { id: 'BED', name: 'Кровать' }
+            BED: { id: 'BED', name: 'Кровать' },
+            BERRY: { id: 'BERRY', name: 'Ягода' },
+            WITHERED_GRASS: { id: 'WITHERED_GRASS', name: 'Сухая трава' }
         };
-        const TILE_TYPES = { EMPTY: 0, TREE: 1, ROCK: 2, WOOD_BLOCK: 4, STONE_BLOCK: 5, BIRCH: 6, OAK: 7, SAKURA: 8, RUINS_WALL: 9, ARTIFACT_BOX: 10, CANDY_CORN: 11, JACK_O_LANTERN: 12 };
-        const ENTITY_TYPES = { SHADOW: 'SHADOW', ANGEL: 'ANGEL', HUMAN: 'HUMAN', MUTANT_HUMAN: 'MUTANT_HUMAN', ARCHANGEL: 'ARCHANGEL', DEMON: 'DEMON', FALSE_ANGEL: 'FALSE_ANGEL' };
+        const TILE_TYPES = { EMPTY: 0, TREE: 1, ROCK: 2, WOOD_BLOCK: 4, STONE_BLOCK: 5, BIRCH: 6, OAK: 7, SAKURA: 8, RUINS_WALL: 9, ARTIFACT_BOX: 10, CANDY_CORN: 11, JACK_O_LANTERN: 12, BERRY_BUSH: 13, GRASS_TUFT: 14 };
+        const ENTITY_TYPES = { SHADOW: 'SHADOW', ANGEL: 'ANGEL', HUMAN: 'HUMAN', MUTANT_HUMAN: 'MUTANT_HUMAN', ARCHANGEL: 'ARCHANGEL', DEMON: 'DEMON', FALSE_ANGEL: 'FALSE_ANGEL', VOID: 'VOID' };
         
         let selectedRecipe = null;
         
@@ -760,6 +768,7 @@
             axe: [['#ccc', '#aaa', null],[null, '#643', '#ccc'],[null, '#643', null]],
             pickaxe: [['#ccc', '#ccc', '#ccc'],[null, '#643', null],[null, '#643', null]],
             sword: [[null, '#fff', null],[null, '#fff', null],[null, '#643', null]],
+            sickle: [['#888', '#666', null], [null, '#643', '#888'], [null, '#643', null], ['#643', null, null]],
             wood_block: [['#965', '#854', '#965', '#854'],['#643', '#854', '#643', '#854'],['#965', '#854', '#965', '#854'],['#643', '#854', '#643', '#854']],
             stone_block: [['#aaa', '#aaa', '#999', '#888'],['#aaa', '#888', '#888', '#999'],['#999', '#888', '#777', '#777'],['#888', '#999', '#777', '#aaa']],
             stone_axe: [['#888', '#666', null],[null, '#643', '#888'],[null, '#643', null]],
@@ -780,6 +789,7 @@
             fire_axe: [['#f80', '#f60', null],[null, '#643', '#f80'],[null, '#643', null],[null, '#643', null]],
             fire_pickaxe: [['#f80', '#f80', '#f80'],[null, '#643', null],[null, '#643', null],[null, '#643', null]],
             fire_sword: [[null, '#f80', null],[null, '#f60', null],[null, '#ff0', null],[null, '#643', null]],
+            fire_sickle: [['#f80', '#f60', null], [null, '#643', '#f80'], [null, '#643', null], ['#643', null, null]],
             archangel_orb: [[null, '#ff0', '#ff0', null], ['#ff0', '#fff', '#fff', '#ff0'], ['#ff0', '#fff', '#fff', '#ff0'], [null, '#ff0', '#ff0', null]],
             ruins_wall: [['#666', '#777', '#666', '#555'], ['#777', '#555', null, '#666'], ['#555', '#666', '#777', null], ['#666', null, '#555', '#777']],
             artifact_box: [['#778', '#445', '#778', '#445'], ['#445', '#80f', '#40f', '#778'], ['#778', '#40f', '#80f', '#445'], ['#445', '#778', '#445', '#778']],
@@ -792,7 +802,18 @@
             door: [['#864', '#975', '#864', '#975'], ['#864', '#975', '#dd0', '#975'], ['#864', '#975', '#864', '#975'], ['#864', '#975', '#864', '#975']],
             chest: [['#a85', '#c96', '#c96', '#a85'], ['#864', '#643', '#643', '#864'], ['#864', '#a85', '#ff0', '#a85'], ['#864', '#a85', '#a85', '#864']],
             mysterious_artifact: [['#f0f', '#0ff', '#f0f'], ['#0ff', '#fff', '#0ff'], ['#f0f', '#0ff', '#f0f']],
-            bed: [['#964', '#964', '#964', '#964'],['#964', '#a75', '#a75', '#964'],['#fff', '#ddd', '#ddd', '#fff'],['#964', '#964', '#964', '#964']]
+            bed: [['#964', '#964', '#964', '#964'],['#964', '#a75', '#a75', '#964'],['#fff', '#ddd', '#ddd', '#fff'],['#964', '#964', '#964', '#964']],
+            berry: [[null, '#c00', '#c00', null], ['#f00', '#f55', '#f55', '#f00'], ['#f00', '#f55', '#f00', null], [null, '#c00', null, null]],
+            withered_grass: [[null, '#dd0', '#cc0', null], ['#cc0', '#dd0', '#bb0', '#dd0'], ['#bb0', '#cc0', '#aa0', '#cc0'], [null, '#aa0', '#990', null]],
+            berry_bush: (hasBerries) => [
+                [null, '#282', hasBerries ? '#f00' : '#393', '#282'],
+                ['#393', hasBerries ? '#f00' : '#282', '#393', hasBerries ? '#f00' : '#282'],
+                [hasBerries ? '#f00' : '#282', '#393', hasBerries ? '#f00' : '#393', '#282'],
+                [null, '#393', '#282', null]
+            ],
+            grass_tuft: [['#dd0', null, '#cc0'], [null, '#bb0', '#dd0'], ['#dd0', '#aa0', '#cc0']],
+            void_boss: [['#201', '#403', '#403', '#201'], ['#403', '#807', '#807', '#403'], ['#403', '#807', '#807', '#403'], ['#201', '#403', '#403', '#201']],
+            void_orb: [[null, '#807', null], ['#807', '#f0f', '#807'], [null, '#807', null]]
         };
         const drawPixelArtOnCtx = (tCtx, x, y, s, p) => {
             if (!p) return;
@@ -839,6 +860,13 @@
                 description: 'Способен создавать целебную мазь всего за 1 Орб Света. Знает цену жизни.',
                 items: [ITEM_TYPES.AXE, ITEM_TYPES.PICKAXE], // Give basic tools to not make it too hard
                 art: [['#fff', '#fff'],['#afa', '#afa'],['#888', '#888'],['#444', '#444']]
+            },
+            {
+                id: 'reaper',
+                name: 'Жнец',
+                description: 'Начинает с огненным серпом и быстрее передвигается, но у него в 2 раза меньше максимальное здоровье.',
+                items: [{type: ITEM_TYPES.FIRE_SICKLE, count: 1}],
+                art: [['#333', '#333'],['#555', '#555'],['#888', '#888'],['#444', '#444']]
             }
         ];
         let selectedCharacterId = CHARACTERS[0].id;
@@ -855,7 +883,8 @@
             "Боссы": {
                  "Мутировавший Человек": { description: "Огромный и агрессивный. Атакует вблизи, нанося двойной урон (80) и отбрасывая игрока.", art: art.mutant_human },
                 "Архангел": { description: "Могущественное существо. Стреляет веером из трёх энергетических шаров.", art: art.archangel },
-                "Демон": { description: "Повелитель теней. Призывает на помощь двух Теней. Очень живуч.", art: art.demon }
+                "Демон": { description: "Повелитель теней. Призывает на помощь двух Теней. Очень живуч.", art: art.demon },
+                "Void": { description: "Древнее существо пустоты. Истощает рассудок аурой, атакует вблизи и выпускает снаряды во все стороны. HP: 1000.", art: art.void_boss }
             },
             "Предметы": {
                 "Топор (Каменный)": { description: "Прочный топор. Добывает в 2 раза больше ресурсов.", art: art.stone_axe },
@@ -863,7 +892,9 @@
                 "Меч (Каменный)": { description: "Прочный меч. Урон: 5.", art: art.stone_sword },
                 "Топор (Огненный)": { description: "Мощный топор. Рубит сразу несколько деревьев. Замедляет при ношении. Урон ауры: 15/сек.", art: art.fire_axe },
                 "Меч (Огненный)": { description: "Очень мощный меч. Урон: 25.", art: art.fire_sword },
+                "Серп": { description: "Позволяет собирать ягоды. Слабое оружие.", art: art.sickle },
                 "Целебная мазь": { description: "Восстанавливает 50 ед. рассудка.", art: art.mental_salve },
+                "Ягода": { description: "Восстанавливает 20 рассудка и даёт 5 ед. щита.", art: art.berry },
                 "Спальный мешок": { description: "Позволяет пропустить ночь. Есть шанс кражи.", art: art.sleeping_bag },
                 "Кровать": { description: "Позволяет пропустить 8 часов. Можно использовать 3 раза.", art: art.bed },
                 "Костёр": { description: "Источник света. Восстанавливает рассудок и ускоряет время. Требует дров для горения.", art: art.campfire },
@@ -879,6 +910,7 @@
                 "Камень": { description: "Ресурс для создания инструментов. Добывается из скал.", art: art.stone_block },
                 "Шар Тьмы": { description: "Эссенция тьмы, выпадающая из Теней.", art: art.dark_orb },
                 "Орб Света": { description: "Эссенция света, выпадающая из Ангелов.", art: art.light_orb },
+                "Сухая трава": { description: "Редкая трава, используется для создания спальных принадлежностей.", art: art.withered_grass },
                 "Осколок Технологии": { description: "Компонент древних механизмов из руин.", art: art.technology_shard },
                 "Древняя плата": { description: "Редкий компонент из руин.", art: art.ancient_circuit },
                 "Конфета": { description: "Сладость на Хэллоуин. Немного восстанавливает рассудок (+10).", art: art.candy_corn },
@@ -886,6 +918,8 @@
             "Мир": {
                 "Дерево": { description: "Источник дерева.", art: art.tree },
                 "Скала": { description: "Источник камня.", art: art.rock },
+                "Ягодный куст": { description: "Источник ягод. Требует времени для созревания.", art: art.berry_bush(true) },
+                "Пучок сухой травы": { description: "Источник сухой травы.", art: art.grass_tuft },
                 "Руины": { description: "Остатки древней цивилизации. Здесь можно найти ящики с артефактами.", art: art.ruins_wall },
             }
         };
@@ -895,9 +929,10 @@
                 { output: { type: ITEM_TYPES.STONE_AXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.STONE, count: 3 }] },
                 { output: { type: ITEM_TYPES.STONE_PICKAXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.STONE, count: 3 }] },
                 { output: { type: ITEM_TYPES.STONE_SWORD, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.STONE, count: 2 }] },
+                { output: { type: ITEM_TYPES.SICKLE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.STONE, count: 2 }] },
                 { output: { type: ITEM_TYPES.MENTAL_SALVE, count: 1 }, ingredients: [{ type: ITEM_TYPES.DARK_ORB, count: 1 }, { type: ITEM_TYPES.STONE, count: 5 }] },
                 { output: { type: ITEM_TYPES.DESPAIR_CRYSTAL, count: 1 }, ingredients: [{ type: ITEM_TYPES.ACORN, count: 1 }, { type: ITEM_TYPES.DARK_ORB, count: 2 }, { type: ITEM_TYPES.WOOD, count: 10 }] },
-                { output: { type: ITEM_TYPES.SLEEPING_BAG, count: 1 }, ingredients: [{ type: ITEM_TYPES.SAKURA_PETAL, count: 3 }, { type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.MENTAL_SALVE, count: 1 }] },
+                { output: { type: ITEM_TYPES.SLEEPING_BAG, count: 1 }, ingredients: [{ type: ITEM_TYPES.WITHERED_GRASS, count: 5 }, { type: ITEM_TYPES.MENTAL_SALVE, count: 1 }] },
                 { output: { type: ITEM_TYPES.BED, count: 1 }, ingredients: [{ type: ITEM_TYPES.SAKURA_PETAL, count: 3 }, { type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.LIGHT_ORB, count: 1 }] },
                 { output: { type: ITEM_TYPES.CAMPFIRE, count: 1 }, ingredients: [{ type: ITEM_TYPES.STONE, count: 3 }, { type: ITEM_TYPES.WOOD, count: 3 }] },
                 { output: { type: ITEM_TYPES.FLASHLIGHT, count: 1 }, ingredients: [{ type: ITEM_TYPES.LIGHT_ORB, count: 1 }, { type: ITEM_TYPES.TECHNOLOGY_SHARD, count: 2 }] },
@@ -959,14 +994,14 @@
                         inventory: player.inventory.map(serializeItem),
                         characterId: selectedCharacterId,
                         shield: player.shield,
-                        maxShield: player.maxShield,
-                        hasShield: player.hasShield
+                        maxShield: player.maxShield
                     },
                     gameTime: gameTime,
                     placedObjects: serializablePlacedObjects,
                     world: world,
                     entities: serializableEntities,
-                    droppedItems: serializableDroppedItems
+                    droppedItems: serializableDroppedItems,
+                    growableObjects: growableObjects
                 };
                 localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
             } catch (error) {
@@ -993,7 +1028,6 @@
                 player.mentalHealth = data.player.mentalHealth;
                 player.shield = data.player.shield || 0;
                 player.maxShield = data.player.maxShield || 100;
-                player.hasShield = data.player.hasShield || false;
                 player.inventory = data.player.inventory.map(deserializeItem);
                 gameTime = data.gameTime;
                 
@@ -1006,6 +1040,7 @@
                 });
                 
                 world = data.world;
+                growableObjects = data.growableObjects || [];
 
                 entities = [];
                 if (data.entities) {
@@ -1097,18 +1132,25 @@
             player = { 
                 x: (WORLD_WIDTH * TILE_SIZE) / 2, y: (WORLD_HEIGHT * TILE_SIZE) / 2, 
                 speed: 150, mentalHealth: 100, maxMentalHealth: 100,
-                shield: 0, maxShield: 100, hasShield: false,
+                shield: 0, maxShield: 100,
                 inventory: Array(21).fill(null), // 20 + 1 drop slot
                 attackCooldown: 0, stunTimer: 0, 
                 pickupCooldown: 0, knockback: {x: 0, y: 0}, isSleeping: false 
             };
             
+            if (selectedCharacterId === 'reaper') {
+                player.speed *= 1.25; // 25% faster
+                player.maxMentalHealth = 50;
+                player.mentalHealth = 50;
+            }
+
             camera = { x: 0, y: 0 };
             entities = [];
             placedObjects = [];
             droppedItems = [];
             traps = [];
             projectiles = [];
+            growableObjects = [];
             mousePos = { x: canvas.width / 2, y: canvas.height / 2 };
 
             if (!loadingSave) {
@@ -1152,6 +1194,8 @@
                     biomeMap[bx][by] = biomeKeys[Math.floor(Math.random() * biomeKeys.length)];
                 }
             }
+            
+            growableObjects = [];
 
             for (let x = 0; x < WORLD_WIDTH; x++) {
                 for (let y = 0; y < WORLD_HEIGHT; y++) {
@@ -1159,30 +1203,36 @@
                     const biomeY = Math.floor(y / BIOME_SIZE);
                     const currentBiome = biomeMap[biomeX][biomeY];
                     const n = Math.random();
-                    const rockChance = 0.98, treeChance = 0.96; 
                     world[x][y] = TILE_TYPES.EMPTY;
 
-                    switch(currentBiome) {
-                        case BIOME_TYPES.FOREST:
-                            if (n > rockChance) world[x][y] = TILE_TYPES.ROCK;
-                            else if (n > treeChance) world[x][y] = TILE_TYPES.TREE;
-                            break;
-                        case BIOME_TYPES.BIRCH_FOREST:
-                            if (n > rockChance) world[x][y] = TILE_TYPES.ROCK;
-                            else if (n > treeChance) world[x][y] = TILE_TYPES.BIRCH;
-                            break;
-                        case BIOME_TYPES.OAK_FOREST:
-                            if (n > rockChance) world[x][y] = TILE_TYPES.ROCK;
-                            else if (n > treeChance) world[x][y] = TILE_TYPES.OAK;
-                            break;
-                        case BIOME_TYPES.SAKURA_GROVE:
-                             if (n > rockChance) world[x][y] = TILE_TYPES.ROCK;
-                             else if (n > treeChance) world[x][y] = TILE_TYPES.SAKURA;
-                             break;
-                        case BIOME_TYPES.PLAINS:
-                            if (n > 0.99) world[x][y] = TILE_TYPES.ROCK;
-                            else if (n > 0.998) world[x][y] = TILE_TYPES.TREE;
-                            break;
+                    if (Math.random() > 0.98) world[x][y] = TILE_TYPES.ROCK;
+                    if (Math.random() > 0.98 && world[x][y] === TILE_TYPES.EMPTY) {
+                        world[x][y] = TILE_TYPES.BERRY_BUSH;
+                        growableObjects.push({ x, y, type: 'BERRY_BUSH', growth: Math.random() * BERRY_GROWTH_TIME });
+                    }
+                    if (Math.random() > 0.98 && world[x][y] === TILE_TYPES.EMPTY) {
+                        world[x][y] = TILE_TYPES.GRASS_TUFT;
+                    }
+
+                    if (world[x][y] === TILE_TYPES.EMPTY) {
+                        let treeChance = (currentBiome === BIOME_TYPES.PLAINS) ? 0.998 : 0.96;
+                        if (n > treeChance) {
+                             switch(currentBiome) {
+                                case BIOME_TYPES.FOREST:
+                                case BIOME_TYPES.PLAINS:
+                                    world[x][y] = TILE_TYPES.TREE;
+                                    break;
+                                case BIOME_TYPES.BIRCH_FOREST:
+                                    world[x][y] = TILE_TYPES.BIRCH;
+                                    break;
+                                case BIOME_TYPES.OAK_FOREST:
+                                    world[x][y] = TILE_TYPES.OAK;
+                                    break;
+                                case BIOME_TYPES.SAKURA_GROVE:
+                                     world[x][y] = TILE_TYPES.SAKURA;
+                                     break;
+                            }
+                        }
                     }
 
                     if (world[x][y] === TILE_TYPES.EMPTY && isHalloweenEvent) {
@@ -1243,14 +1293,11 @@
         
         // --- Damage and State Update ---
         function damagePlayer(amount) {
-            if (player.hasShield && player.shield > 0) {
+            if (player.shield > 0) {
                 const shieldDamage = Math.min(amount, player.shield);
                 player.shield -= shieldDamage;
                 amount -= shieldDamage;
-
                 if (player.shield <= 0) {
-                    player.hasShield = false; // Shield is broken permanently
-                    document.getElementById('shield-bar-container').style.display = 'none';
                     showNotification("Ваш щит сломан!");
                 }
             }
@@ -1353,6 +1400,7 @@
             damagePlayer(MENTAL_HEALTH_DRAIN_RATE * dt);
             
             updatePlacedObjects(dt);
+            updateGrowables(dt);
             updateDroppedItems();
             updateProjectiles(dt);
             handleFlashlight(dt);
@@ -1374,10 +1422,11 @@
         }
         
         function isPathfindingSolid(gridX, gridY) {
-            const tileType = world[gridX]?.[gridY];
+            if (gridX < 0 || gridY < 0 || gridX >= WORLD_WIDTH || gridY >= WORLD_HEIGHT) return true;
+            const tileType = world[gridX][gridY];
             return tileType === TILE_TYPES.TREE || tileType === TILE_TYPES.ROCK || tileType === TILE_TYPES.WOOD_BLOCK ||
                    tileType === TILE_TYPES.STONE_BLOCK || tileType === TILE_TYPES.BIRCH || tileType === TILE_TYPES.OAK ||
-                   tileType === TILE_TYPES.SAKURA || tileType === TILE_TYPES.RUINS_WALL;
+                   tileType === TILE_TYPES.SAKURA || tileType === TILE_TYPES.RUINS_WALL || tileType === TILE_TYPES.BERRY_BUSH;
         }
 
         function isPhysicallySolid(gridX, gridY, entity, isPhasing = false) {
@@ -1432,6 +1481,16 @@
                     }
                 }
             }
+        }
+        
+        function updateGrowables(dt) {
+            growableObjects.forEach(obj => {
+                if (obj.type === 'BERRY_BUSH') {
+                    if (obj.growth < BERRY_GROWTH_TIME) {
+                        obj.growth += dt;
+                    }
+                }
+            });
         }
 
         function updateDroppedItems() {
@@ -1531,7 +1590,7 @@
                     }
 
                     if (e.isBoss) {
-                        const drops = [ITEM_TYPES.FIRE_AXE, ITEM_TYPES.FIRE_PICKAXE, ITEM_TYPES.FIRE_SWORD];
+                        const drops = [ITEM_TYPES.FIRE_AXE, ITEM_TYPES.FIRE_PICKAXE, ITEM_TYPES.FIRE_SWORD, ITEM_TYPES.FIRE_SICKLE];
                         addItemToInventory(drops[Math.floor(Math.random() * drops.length)]);
                     }
                     entities.splice(i, 1);
@@ -1596,6 +1655,11 @@
                         } else if (e.type === ENTITY_TYPES.FALSE_ANGEL) {
                              if (Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS) damagePlayer(30 * dt);
                         }
+                        else if (e.type === ENTITY_TYPES.VOID) {
+                           if (Math.hypot(e.x - player.x, e.y - player.y) < VOID_AURA_RADIUS) {
+                                damagePlayer(VOID_AURA_DAMAGE * dt);
+                            }
+                        }
                         
                         if (e.type === ENTITY_TYPES.HUMAN && !e.aggressive && selectedCharacterId !== 'killer' && Math.hypot(e.x - player.x, e.y - player.y) < HUMAN_HEAL_RADIUS) {
                              player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + HUMAN_HEAL_RATE * dt);
@@ -1612,7 +1676,7 @@
                             const projectileSpeed = 200;
                             for (let k = -1; k <= 1; k++) {
                                 const angle = angleToPlayer + (k * Math.PI / 16);
-                                projectiles.push({ x: e.x, y: e.y, vx: Math.cos(angle) * projectileSpeed, vy: Math.sin(angle) * projectileSpeed, lifetime: 6, damage: e.damage });
+                                projectiles.push({ x: e.x, y: e.y, vx: Math.cos(angle) * projectileSpeed, vy: Math.sin(angle) * projectileSpeed, lifetime: 6, damage: e.damage, art: art.archangel_orb });
                             }
                             e.attackCooldown = 3.5;
                         }
@@ -1631,6 +1695,24 @@
                             }
                             showNotification("Демон призывает тени!");
                             e.attackCooldown = 6;
+                        }
+                         else if (e.type === ENTITY_TYPES.VOID) {
+                            if (distToPlayer < TILE_SIZE * 2) {
+                                damagePlayer(e.damage * 2);
+                                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                                player.knockback.x = Math.cos(angle) * 500;
+                                player.knockback.y = Math.sin(angle) * 500;
+                                e.attackCooldown = 2.5;
+                            } 
+                            else if (distToPlayer < TILE_SIZE * 12) {
+                                const projectileSpeed = 150;
+                                const numProjectiles = 12;
+                                for (let k = 0; k < numProjectiles; k++) {
+                                    const angle = (k / numProjectiles) * Math.PI * 2;
+                                    projectiles.push({ x: e.x, y: e.y, vx: Math.cos(angle) * projectileSpeed, vy: Math.sin(angle) * projectileSpeed, lifetime: 8, damage: e.damage / 2, art: art.void_orb });
+                                }
+                                e.attackCooldown = 5;
+                            }
                         }
                     } 
                     else if (((e.type === ENTITY_TYPES.HUMAN && e.aggressive) || e.type === ENTITY_TYPES.SHADOW) && distToPlayer < TILE_SIZE * 1.5) {
@@ -1693,7 +1775,11 @@
             if (day > 3) {
                 const bossExists = entities.some(e => e && e.isBoss);
                 if (!bossExists && Math.random() < 0.005) {
-                    const bossType = [ENTITY_TYPES.MUTANT_HUMAN, ENTITY_TYPES.ARCHANGEL, ENTITY_TYPES.DEMON][Math.floor(Math.random() * 3)];
+                    const bossPool = [ENTITY_TYPES.MUTANT_HUMAN, ENTITY_TYPES.ARCHANGEL, ENTITY_TYPES.DEMON];
+                    if (day > 5) {
+                        bossPool.push(ENTITY_TYPES.VOID);
+                    }
+                    const bossType = bossPool[Math.floor(Math.random() * bossPool.length)];
                     spawnEntity(bossType);
                     showNotification("Вы чувствуете зловещее присутствие...");
                 }
@@ -1726,6 +1812,7 @@
             else if (type === ENTITY_TYPES.MUTANT_HUMAN) baseHealth = 500;
             else if (type === ENTITY_TYPES.ARCHANGEL) baseHealth = 400;
             else if (type === ENTITY_TYPES.DEMON) baseHealth = 666;
+            else if (type === ENTITY_TYPES.VOID) baseHealth = 1000;
 
             const health = saveData ? saveData.health : baseHealth;
             
@@ -1742,6 +1829,7 @@
             else if (type === ENTITY_TYPES.MUTANT_HUMAN) entities.push({ ...baseEntity, isBoss: true, type, speed: 80, damage: 40, aggressive: true, attackCooldown: 2 });
             else if (type === ENTITY_TYPES.ARCHANGEL) entities.push({ ...baseEntity, isBoss: true, type, speed: 60, damage: 15, aggressive: true, attackCooldown: 3.5 });
             else if (type === ENTITY_TYPES.DEMON) entities.push({ ...baseEntity, isBoss: true, type, speed: 90, damage: 25, aggressive: true, attackCooldown: 6 });
+            else if (type === ENTITY_TYPES.VOID) entities.push({ ...baseEntity, isBoss: true, type, speed: 70, damage: 40, aggressive: true, attackCooldown: 4 });
         }
         
         // --- Rendering ---
@@ -1773,12 +1861,20 @@
                 else if (tile === TILE_TYPES.ARTIFACT_BOX) drawPixelArt(dX, dY, TILE_SIZE, art.artifact_box);
                 else if (tile === TILE_TYPES.CANDY_CORN) drawPixelArt(dX, dY, TILE_SIZE, art.candy_corn);
                 else if (tile === TILE_TYPES.JACK_O_LANTERN) drawPixelArt(dX, dY, TILE_SIZE, art.jack_o_lantern);
+                else if (tile === TILE_TYPES.BERRY_BUSH) {
+                    const bush = growableObjects.find(b => b.x === x && b.y === y);
+                    const hasBerries = bush && bush.growth >= BERRY_GROWTH_TIME;
+                    drawPixelArt(dX, dY, TILE_SIZE, art.berry_bush(hasBerries));
+                } else if (tile === TILE_TYPES.GRASS_TUFT) {
+                    drawPixelArt(dX, dY, TILE_SIZE, art.grass_tuft);
+                }
             }
             
             projectiles.forEach(p => {
                 const dX = p.x - camera.x - TILE_SIZE / 4;
                 const dY = p.y - camera.y - TILE_SIZE / 4;
-                drawPixelArt(dX, dY, TILE_SIZE / 2, art.archangel_orb);
+                const projArt = p.art || art.archangel_orb;
+                drawPixelArt(dX, dY, TILE_SIZE / 2, projArt);
             });
 
             droppedItems.forEach(dItem => {
@@ -1834,6 +1930,13 @@
                 else if (e.type === ENTITY_TYPES.MUTANT_HUMAN) drawPixelArt(dX - size / 2, dY - size / 2, size, art.mutant_human);
                 else if (e.type === ENTITY_TYPES.ARCHANGEL) drawPixelArt(dX - size / 2, dY - size / 2, size, art.archangel);
                 else if (e.type === ENTITY_TYPES.DEMON) drawPixelArt(dX - size / 2, dY - size / 2, size, art.demon);
+                else if (e.type === ENTITY_TYPES.VOID) {
+                    ctx.beginPath(); 
+                    ctx.arc(dX, dY, VOID_AURA_RADIUS, 0, Math.PI * 2); 
+                    ctx.fillStyle = 'rgba(128, 0, 255, 0.1)'; 
+                    ctx.fill(); 
+                    drawPixelArt(dX - size / 2, dY - size / 2, size, art.void_boss);
+                }
 
 
                 if (e.hitTimer > 0) {
@@ -1910,7 +2013,7 @@
             document.getElementById('mental-health-bar').style.width = `${(player.mentalHealth / player.maxMentalHealth) * 100}%`;
             
             const shieldBarContainer = document.getElementById('shield-bar-container');
-            if(player.hasShield && player.shield > 0) {
+            if(player.shield > 0) {
                 shieldBarContainer.style.display = 'block';
                 document.getElementById('shield-bar').style.width = `${(player.shield / player.maxShield) * 100}%`;
             } else {
@@ -2277,16 +2380,18 @@
                 if (selectedItem.type === ITEM_TYPES.MENTAL_SALVE) { player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + 50); removeItemFromInventory(player.inventory, ITEM_TYPES.MENTAL_SALVE, 1); player.attackCooldown = 0.5; return; }
                 if (selectedItem.type === ITEM_TYPES.CANDY_CORN) { player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + 10); removeItemFromInventory(player.inventory, ITEM_TYPES.CANDY_CORN, 1); player.attackCooldown = 0.2; return; }
                 if (selectedItem.type === ITEM_TYPES.JACK_O_LANTERN) { player.mentalHealth = player.maxMentalHealth; removeItemFromInventory(player.inventory, ITEM_TYPES.JACK_O_LANTERN, 1); player.attackCooldown = 0.5; return; }
+                if (selectedItem.type === ITEM_TYPES.BERRY) { 
+                    player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + 20);
+                    player.shield = Math.min(player.maxShield, player.shield + 5);
+                    removeItemFromInventory(player.inventory, ITEM_TYPES.BERRY, 1);
+                    player.attackCooldown = 0.3;
+                    return;
+                }
                 if (selectedItem.type === ITEM_TYPES.MYSTERIOUS_ARTIFACT) {
-                     if (!player.hasShield && player.shield <= 0) {
-                        player.hasShield = true;
-                        player.shield = player.maxShield;
-                        showNotification("Вы чувствуете, как магическая энергия окутывает вас щитом!");
-                        removeItemFromInventory(player.inventory, ITEM_TYPES.MYSTERIOUS_ARTIFACT, 1);
-                        player.attackCooldown = 1;
-                    } else {
-                        showNotification("Артефакт больше не реагирует.");
-                    }
+                    player.shield = player.maxShield;
+                    showNotification("Вы чувствуете, как магическая энергия окутывает вас щитом!");
+                    removeItemFromInventory(player.inventory, ITEM_TYPES.MYSTERIOUS_ARTIFACT, 1);
+                    player.attackCooldown = 1;
                     return;
                 }
 
@@ -2303,6 +2408,30 @@
             
             let didAttack = false;
             const toolType = selectedItem?.type.id;
+             if (toolType && (toolType.includes('SICKLE'))) {
+                let sickleDamage = 1.5; // Half of base sword (3)
+                let knockbackForce = 125; // Half of base sword (250)
+                let range = TILE_SIZE * 1.2;
+                if(toolType === 'FIRE_SICKLE') { 
+                    sickleDamage = 12.5; // Half of fire sword (25)
+                    knockbackForce = 200; // Half of fire sword (400)
+                }
+                
+                entities.forEach(e => { 
+                    if (!e) return;
+                    if (Math.hypot(e.x - mouseX, e.y - mouseY) < range) {
+                        e.health -= sickleDamage; e.lastDamageSource = 'player'; e.hitTimer = 0.2;
+                        const angle = Math.atan2(e.y - player.y, e.x - player.x);
+                        e.knockback.x = Math.cos(angle) * knockbackForce; e.knockback.y = Math.sin(angle) * knockbackForce;
+                        didAttack = true;
+                        if (e.health > 0) { 
+                            if (e.type === ENTITY_TYPES.HUMAN && !e.isBoss) { e.aggressive = true; e.aggressionTimer = 30; } 
+                            else if (e.type === ENTITY_TYPES.ANGEL) { damagePlayer(10); } 
+                        }
+                    }
+                });
+                if (didAttack) { player.attackCooldown = 0.5; damageItem(selectedHotbarSlot); return; }
+            }
             if (toolType && toolType.includes('SWORD')) {
                 let swordDamage = 3, knockbackForce = 250, range = TILE_SIZE * 1.2;
                 if(toolType === 'STONE_SWORD') { swordDamage = 5; knockbackForce = 300; }
@@ -2327,6 +2456,29 @@
             if (gridX < 0 || gridY < 0 || gridX >= WORLD_WIDTH || gridY >= WORLD_HEIGHT) return;
             const tile = world[gridX][gridY];
             
+            if (tile === TILE_TYPES.GRASS_TUFT) {
+                world[gridX][gridY] = TILE_TYPES.EMPTY;
+                addItemToInventory(ITEM_TYPES.WITHERED_GRASS, 1 + Math.floor(Math.random() * 2)); // 1-2 grass
+                player.attackCooldown = 0.3;
+                return;
+            }
+            if (tile === TILE_TYPES.BERRY_BUSH) {
+                if (selectedItem && (selectedItem.type.id === 'SICKLE' || selectedItem.type.id === 'FIRE_SICKLE')) {
+                    const bush = growableObjects.find(b => b.x === gridX && b.y === gridY);
+                    if (bush && bush.growth >= BERRY_GROWTH_TIME) {
+                        addItemToInventory(ITEM_TYPES.BERRY, 2 + Math.floor(Math.random() * 2)); // 2-3 berries
+                        bush.growth = 0; // Reset growth
+                        damageItem(selectedHotbarSlot);
+                        player.attackCooldown = 0.4;
+                    } else {
+                        showNotification("Здесь пока нет ягод.");
+                    }
+                } else {
+                    showNotification("Нужен серп, чтобы собрать это.");
+                }
+                return;
+            }
+
             if (tile === TILE_TYPES.ARTIFACT_BOX) {
                 world[gridX][gridY] = TILE_TYPES.EMPTY;
                 const drop = Math.random() < 0.75 ? ITEM_TYPES.TECHNOLOGY_SHARD : ITEM_TYPES.ANCIENT_CIRCUIT;
@@ -2354,6 +2506,20 @@
                         world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.STONE, 1 * toolPower); usedTool = true;
                     } 
                     else if (tile === TILE_TYPES.EMPTY) {
+                        const isPlaceable = [ITEM_TYPES.WOOD, ITEM_TYPES.STONE, ITEM_TYPES.DOOR, ITEM_TYPES.CHEST, ITEM_TYPES.BED, ITEM_TYPES.CAMPFIRE].some(it => it.id === selectedItem.type.id);
+                        if (isPlaceable) {
+                            let isOccupied = false;
+                            for (const e of entities) {
+                                if (Math.floor(e.x / TILE_SIZE) === gridX && Math.floor(e.y / TILE_SIZE) === gridY) {
+                                    isOccupied = true;
+                                    break;
+                                }
+                            }
+                            if (isOccupied) {
+                                showNotification("Нельзя строить на существе!");
+                                return;
+                            }
+                        }
                         const newObjX = gridX * TILE_SIZE + TILE_SIZE / 2;
                         const newObjY = gridY * TILE_SIZE + TILE_SIZE / 2;
                         if (selectedItem.type === ITEM_TYPES.WOOD && countItems(ITEM_TYPES.WOOD) > 0) { world[gridX][gridY] = TILE_TYPES.WOOD_BLOCK; removeItemFromInventory(player.inventory, ITEM_TYPES.WOOD, 1); } 
@@ -2799,3 +2965,4 @@
     </script>
 </body>
 </html>
+
