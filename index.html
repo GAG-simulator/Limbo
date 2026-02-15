@@ -6,14 +6,14 @@
     <title>LIMBO</title>
     <style>
         :root {
-            --ui-bg: rgba(20, 20, 20, 0.75);
-            --border-color: rgba(120, 120, 120, 0.5);
+            --ui-bg: rgba(20, 20, 20, 0.85);
+            --border-color: rgba(140, 140, 140, 0.6);
             --highlight-color: #fff;
             --un-craftable-color: #ff5555;
             --slot-bg: #2c2c2c;
             --slot-size: clamp(40px, 10vw, 60px);
             --ui-padding: clamp(10px, 3vw, 20px);
-            --ui-radius: 10px;
+            --ui-radius: 8px;
         }
         body {
             background-color: #000;
@@ -25,12 +25,14 @@
             width: 100vw;
             overflow: hidden;
             image-rendering: pixelated;
+            user-select: none;
+            -webkit-user-select: none;
         }
         #game-container {
             position: relative;
             width: 100%;
             height: 100%;
-            transition: transform 1.5s cubic-bezier(0.5, -0.5, 0.5, 1.5); /* For hell animation */
+            transition: transform 1.5s cubic-bezier(0.5, -0.5, 0.5, 1.5);
         }
         canvas {
             display: block;
@@ -58,53 +60,56 @@
         }
         .game-ui-element {
             background-color: var(--ui-bg);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(4px);
             border-radius: var(--ui-radius);
             border: 2px solid var(--border-color);
             padding: 8px 12px;
             box-sizing: border-box;
             pointer-events: auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
         #health-bars-container {
             flex-grow: 1;
             max-width: 350px;
-            padding: 6px;
+            padding: 8px;
         }
         #mental-health-bar-container {
            width: 100%;
            height: 16px;
            background-color: #444;
-           border-radius: 5px;
+           border-radius: 4px;
            overflow: hidden;
+           position: relative;
         }
         #mental-health-bar {
             width: 100%;
             height: 100%;
             background-color: var(--highlight-color);
-            transition: width 0.5s;
-            border-radius: 5px;
+            transition: width 0.2s;
+            border-radius: 4px;
         }
         #shield-bar-container {
            display: none;
            width: 100%;
            height: 14px;
            background-color: #444;
-           border-radius: 5px;
-           margin-top: 4px;
+           border-radius: 4px;
+           margin-top: 6px;
            overflow: hidden;
         }
         #shield-bar {
             width: 100%;
             height: 100%;
             background-color: #00aaff;
-            transition: width 0.5s;
-            border-radius: 5px;
+            transition: width 0.2s;
+            border-radius: 4px;
         }
 
         #clock-container {
             text-align: center;
-            font-size: clamp(14px, 4vw, 16px);
-            flex-shrink: 0; /* Prevent shrinking */
+            font-size: clamp(14px, 4vw, 18px);
+            flex-shrink: 0;
+            font-weight: bold;
         }
         #handbook-button {
              width: 42px;
@@ -114,8 +119,12 @@
              padding: 0;
              cursor: pointer;
              flex-shrink: 0;
-             line-height: 40px;
+             line-height: 38px;
              text-align: center;
+        }
+        #handbook-button:hover {
+            border-color: #fff;
+            background-color: #333;
         }
 
         #bottom-ui {
@@ -126,7 +135,7 @@
             display: flex;
             align-items: flex-end;
             justify-content: center;
-            gap: 10px;
+            gap: 15px;
             pointer-events: none;
             z-index: 10;
         }
@@ -134,7 +143,7 @@
             display: flex;
             gap: 8px;
             background-color: var(--ui-bg);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(4px);
             padding: 8px;
             border-radius: var(--ui-radius);
             border: 2px solid var(--border-color);
@@ -150,28 +159,33 @@
             align-items: center;
             position: relative;
             user-select: none;
-            border-radius: 5px;
-            transition: all 0.2s;
+            border-radius: 6px;
+            transition: all 0.1s;
             cursor: pointer;
             overflow: hidden;
         }
+        .hotbar-slot:hover {
+            border-color: #aaa;
+        }
         .hotbar-slot.selected {
             border-color: var(--highlight-color);
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
-            transform: scale(1.1);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            transform: scale(1.05);
+            z-index: 2;
         }
         .item-icon {
             width: 100%;
             height: 100%;
-            pointer-events: none; /* Make sure events go to the slot */
+            pointer-events: none;
         }
         .item-count {
             position: absolute;
             bottom: 2px;
             right: 4px;
-            font-size: clamp(12px, 3vw, 16px);
+            font-size: clamp(12px, 3vw, 14px);
             font-weight: bold;
-            text-shadow: 2px 2px 3px black;
+            color: #fff;
+            text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
             pointer-events: none;
         }
         .durability-bar {
@@ -196,7 +210,7 @@
         .screen-overlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background-color: rgba(0,0,0,0.85);
+            background-color: rgba(10, 10, 10, 0.95);
             backdrop-filter: blur(5px);
             display: flex;
             flex-direction: column;
@@ -205,48 +219,52 @@
             text-align: center;
             z-index: 100;
         }
-        .screen-overlay h1 { font-size: clamp(32px, 10vw, 48px); }
-        .screen-overlay p { max-width: 600px; line-height: 1.5; padding: 0 20px; font-size: clamp(14px, 4vw, 16px); }
+        .screen-overlay h1 { font-size: clamp(32px, 8vw, 64px); margin-bottom: 20px; color: #eee; text-shadow: 0 0 10px #000; }
+        .screen-overlay p { max-width: 600px; line-height: 1.6; padding: 0 20px; font-size: clamp(14px, 4vw, 18px); color: #ccc; }
         .screen-overlay button {
-            background: var(--slot-bg); color: #fff; border: 2px solid var(--border-color); padding: 12px 24px;
-            font-family: inherit; font-size: clamp(16px, 5vw, 18px); cursor: pointer; margin-top: 20px; border-radius: var(--ui-radius);
-            min-width: 220px;
+            background: var(--slot-bg); color: #fff; border: 2px solid var(--border-color); padding: 15px 30px;
+            font-family: inherit; font-size: clamp(16px, 5vw, 20px); cursor: pointer; margin-top: 15px; border-radius: var(--ui-radius);
+            min-width: 250px;
+            transition: all 0.2s;
         }
-        .screen-overlay button:hover { border-color: var(--highlight-color); background-color: #333; }
-        .screen-overlay button:disabled { background: #111; color: #555; border-color: #333; cursor: not-allowed;}
-        .screen-overlay input {
-            background: var(--slot-bg); color: #fff; border: 2px solid var(--border-color); padding: 12px;
-            font-family: inherit; font-size: clamp(16px, 5vw, 18px); border-radius: var(--ui-radius);
-            margin-top: 10px; text-align: center;
-        }
+        .screen-overlay button:hover { border-color: var(--highlight-color); background-color: #444; transform: translateY(-2px); }
+        .screen-overlay button:active { transform: translateY(0); }
+        .screen-overlay button:disabled { background: #111; color: #555; border-color: #333; cursor: not-allowed; transform: none;}
         
-        /* --- Character Select --- */
+        /* --- Character Select (FIXED) --- */
+        #character-select-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 60px; /* Make space for arrows */
+            box-sizing: border-box;
+        }
         #character-carousel {
             display: flex;
             align-items: center;
-            gap: clamp(20px, 5vw, 40px);
+            gap: 20px;
             width: 100%;
-            height: clamp(280px, 40vh, 320px);
+            height: 320px;
             overflow-x: auto;
             scroll-snap-type: x mandatory;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none; /* Firefox */
-            padding: 0 calc(50vw - 110px); /* 110px is half of 220px (max card width) */
+            scrollbar-width: none;
+            padding: 0 calc(50% - 110px); 
             box-sizing: border-box;
+            scroll-behavior: smooth;
         }
-        #character-carousel::-webkit-scrollbar {
-            display: none; /* WebKit */
-        }
+        #character-carousel::-webkit-scrollbar { display: none; }
         
         .character-card {
             flex-shrink: 0;
             scroll-snap-align: center;
-            position: relative;
-            width: clamp(180px, 40vw, 220px);
-            height: clamp(240px, 35vh, 280px);
-            background-color: var(--slot-bg);
+            width: 220px;
+            height: 280px;
+            background-color: #222;
             border: 3px solid var(--border-color);
-            border-radius: var(--ui-radius);
+            border-radius: 12px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -255,103 +273,80 @@
             box-sizing: border-box;
             gap: 15px;
             user-select: none;
-            transform: scale(0.85);
-            transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+            opacity: 0.5;
+            transform: scale(0.9);
+            transition: all 0.3s ease;
+            cursor: pointer;
         }
         
         .character-card.selected {
+            opacity: 1;
             transform: scale(1);
             border-color: var(--highlight-color);
-            box-shadow: 0 0 15px rgba(255,255,255,0.4);
+            background-color: #333;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
         }
 
-        .character-card h3 {
-            margin: 0;
-            text-align: center;
-            font-size: clamp(16px, 4vw, 20px);
-        }
-        .character-card .char-icon {
-            width: 100px;
-            height: 100px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        #character-details {
-            min-height: 80px;
-            max-width: 600px;
-            margin-top: 10px;
-            transition: opacity 0.4s ease; /* Add transition for fade effect */
-        }
-        #character-details h2 {
-             font-size: clamp(20px, 5vw, 24px); margin: 0 0 10px 0; color: var(--highlight-color);
-        }
+        .character-card h3 { margin: 0; text-align: center; font-size: 20px; color: #fff; }
+        .character-card .char-icon { width: 100px; height: 100px; display: flex; justify-content: center; align-items: center; }
         
-        #back-to-main-menu-button {
-            margin-top: 10px;
-            background: transparent;
-            font-size: 14px;
-            padding: 8px 16px;
-            min-width: auto;
+        #character-details { min-height: 100px; max-width: 600px; margin-top: 20px; padding: 0 20px; }
+        #character-details h2 { color: var(--highlight-color); margin-bottom: 10px; }
+        
+        .carousel-btn {
+            background: rgba(0,0,0,0.7); color: #fff; border: 2px solid #555; font-size: 24px; cursor: pointer;
+            padding: 0; border-radius: 50%; width: 50px; height: 50px; display: flex; justify-content: center; align-items: center;
+            transition: all 0.2s; position: absolute; top: 50%; transform: translateY(-50%); z-index: 10;
         }
-
+        .carousel-btn:hover { background: rgba(255,255,255,0.2); border-color: #fff; }
+        #prev-char { left: 0px; }
+        #next-char { right: 0px; }
+        @media (max-width: 600px) { .carousel-btn { display: none; } }
 
         /* --- Inventory and Crafting --- */
         #inventory-screen, #chest-screen {
             flex-direction: row;
-            flex-wrap: nowrap; /* Prevent wrapping */
+            flex-wrap: nowrap;
             gap: 20px;
             padding: var(--ui-padding);
-            align-items: stretch; /* Make panels same height */
+            align-items: stretch;
             justify-content: center;
-            z-index: 200; /* Higher than joystick */
+            z-index: 200;
         }
         .inventory-panel {
-            background: rgba(26, 26, 26, 0.9);
+            background: rgba(30, 30, 30, 0.95);
             border: 2px solid var(--border-color);
             border-radius: var(--ui-radius);
             padding: 15px;
-            max-height: calc(100vh - 2 * var(--ui-padding));
+            max-height: calc(100vh - 40px);
             display: flex;
             flex-direction: column;
-            width: clamp(280px, 40vw, 400px);
-            max-width: 90vw;
+            width: clamp(300px, 45vw, 450px);
             box-sizing: border-box;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         }
         
         .inventory-panel h2 {
-            margin-top: 0; text-align: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;
+            margin-top: 0; text-align: center; border-bottom: 1px solid #444; padding-bottom: 10px; color: #ddd;
         }
 
         #recipe-list { 
-            list-style: none; 
-            padding: 0; 
-            margin: 0; 
-            overflow-y: auto; 
-            flex-grow: 1; /* Allows the list to take available space */
-            flex-shrink: 1;
+            list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1; 
+            scrollbar-width: thin; scrollbar-color: #555 #222;
         }
+        #recipe-list::-webkit-scrollbar { width: 8px; }
+        #recipe-list::-webkit-scrollbar-track { background: #222; }
+        #recipe-list::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+        
         #recipe-list li {
             padding: 10px; border-bottom: 1px solid #333; cursor: pointer;
-            transition: background-color 0.2s, color 0.2s;
-            border-radius: 5px;
+            display: flex; justify-content: space-between; align-items: center;
         }
-        #recipe-list li:hover { background-color: #333; }
-        #recipe-list li.selected { background-color: #444; }
-        #recipe-list li.un-craftable {
-            color: #aaa;
-            cursor: not-allowed;
-        }
-        #recipe-list li.un-craftable:hover {
-            background-color: transparent;
-        }
-        #crafting-details ul li.needed-bad {
-             color: var(--un-craftable-color) !important;
-        }
-        
-        #crafting-details { margin-top: 15px; text-align: center; }
-        #craft-button { width: 100%; margin-top: auto; padding: 12px;}
-        #craft-button:disabled { background: #111; color: #555; border-color: #333; cursor: not-allowed;}
+        #recipe-list li:hover { background-color: #383838; }
+        #recipe-list li.selected { background-color: #444; border-left: 4px solid #fff; }
+        #recipe-list li.un-craftable { color: #777; }
+
+        #crafting-details ul li.needed-bad { color: var(--un-craftable-color); }
         
         #inventory-grid, #player-chest-grid, #chest-grid {
             display: grid;
@@ -359,236 +354,140 @@
             gap: 8px;
             overflow-y: auto;
             flex-grow: 1;
+            padding: 5px;
         }
         .inventory-slot.drop-slot {
             border: 2px dashed #ff5555;
-            background-color: rgba(255, 85, 85, 0.1);
+            background-color: rgba(255, 85, 85, 0.05);
         }
-        .inventory-slot.drop-slot:hover {
-             background-color: rgba(255, 85, 85, 0.2);
-        }
-        .drop-slot svg {
-            width: 60%;
-            height: 60%;
-            fill: #ff6b6b;
-            pointer-events: none;
-        }
+        .drop-slot svg { width: 50%; height: 50%; fill: #ff6b6b; pointer-events: none; }
         
-        /* --- Mobile Responsiveness --- */
-        @media (max-width: 768px) and (orientation: portrait), (max-height: 500px) {
-            #inventory-screen, #chest-screen {
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-            }
-            .inventory-panel {
-                max-height: calc(50vh - 1.5 * var(--ui-padding));
-                width: 90vw;
-            }
+        @media (max-width: 800px) {
+            #inventory-screen, #chest-screen { flex-direction: column; align-items: center; }
+            .inventory-panel { width: 95vw; max-height: 45vh; }
         }
         
         /* --- Handbook --- */
         #handbook-panel {
-            background: rgba(26, 26, 26, 0.95);
+            background: #222;
             border: 2px solid var(--border-color);
             border-radius: var(--ui-radius);
             width: clamp(300px, 90vw, 800px);
-            height: clamp(400px, 90vh, 600px);
+            height: clamp(400px, 80vh, 700px);
             padding: 20px;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
         }
-        #handbook-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 10px;
-            margin-bottom: 10px;
-        }
-        #handbook-header h1 {
-            margin: 0;
-            font-size: clamp(24px, 6vw, 28px);
-        }
-        #handbook-close-button {
-            background: none;
-            border: none;
-            color: #fff;
-            font-size: 32px;
-            cursor: pointer;
-            padding: 0 10px;
-        }
-        #handbook-tabs {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
+        #handbook-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 15px; margin-bottom: 15px; }
+        #handbook-tabs { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
         .handbook-tab {
-            background: var(--slot-bg);
-            border: 1px solid var(--border-color);
-            padding: 8px 12px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: all 0.2s;
+            background: #333; padding: 8px 16px; border-radius: 4px; cursor: pointer; border: 1px solid transparent;
         }
-        .handbook-tab:hover {
-            background-color: #444;
-        }
-        .handbook-tab.active {
-            background-color: #555;
-            border-color: var(--highlight-color);
-        }
-        #handbook-content {
-            overflow-y: auto;
-            flex-grow: 1;
-            padding-right: 10px; /* for scrollbar */
-        }
-        .handbook-entry {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding: 10px;
-            border-bottom: 1px solid #333;
-        }
-        .handbook-entry:last-child {
-            border-bottom: none;
-        }
-        .handbook-entry-icon {
-            width: 48px;
-            height: 48px;
-            flex-shrink: 0;
-        }
-        .handbook-entry-text h3 {
-            margin: 0 0 5px 0;
-            color: var(--highlight-color);
-        }
-         .handbook-entry-text p {
-            margin: 0;
-            font-size: 14px;
-            color: #ccc;
-            line-height: 1.4;
-        }
+        .handbook-tab.active { background-color: #555; border-color: #fff; }
+        #handbook-content { overflow-y: auto; flex-grow: 1; }
+        .handbook-entry { display: flex; align-items: center; gap: 20px; padding: 15px; border-bottom: 1px solid #333; }
+        .handbook-entry-icon { width: 48px; height: 48px; flex-shrink: 0; }
+        .handbook-entry-text h3 { margin: 0 0 5px 0; color: #fff; }
+        .handbook-entry-text p { margin: 0; color: #aaa; font-size: 14px; }
 
-
-        /* --- Joystick and Mobile Buttons --- */
+        /* --- Controls --- */
         #joystick-container {
             position: absolute;
-            bottom: calc(var(--ui-padding) + var(--slot-size) + 20px);
+            bottom: calc(var(--ui-padding) + var(--slot-size) + 30px);
             left: var(--ui-padding);
-            width: clamp(100px, 20vw, 120px);
-            height: clamp(100px, 20vw, 120px);
-            background-color: rgba(80, 80, 80, 0.3);
+            width: 120px; height: 120px;
+            background-color: rgba(255, 255, 255, 0.1);
             border-radius: 50%;
             display: none;
             z-index: 50;
+            border: 2px solid rgba(255,255,255,0.1);
         }
         #joystick-handle {
-            position: absolute; width: 45%; height: 45%;
-            background-color: rgba(200, 200, 200, 0.5); border-radius: 50%;
-            left: 27.5%; top: 27.5%;
-            border: 2px solid rgba(255,255,255,0.2);
+            position: absolute; width: 50px; height: 50px;
+            background-color: rgba(255, 255, 255, 0.3); border-radius: 50%;
+            left: 35px; top: 35px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
         }
 
         .mobile-ui-button {
-            width: var(--slot-size);
-            height: var(--slot-size);
-            border: 2px solid var(--border-color);
-            background-color: var(--ui-bg);
-            display: none; /* Hide by default */
-            justify-content: center;
-            align-items: center;
-            border-radius: var(--ui-radius);
-            pointer-events: auto;
-            cursor: pointer;
-            backdrop-filter: blur(8px);
+            width: var(--slot-size); height: var(--slot-size);
+            border: 2px solid var(--border-color); background-color: var(--ui-bg);
+            display: none; justify-content: center; align-items: center;
+            border-radius: var(--ui-radius); pointer-events: auto; cursor: pointer;
         }
-        .mobile-ui-button:active { transform: scale(0.95); }
-        .mobile-ui-button svg {
-            width: 70%; height: 70%; fill: #fff;
-        }
+        .mobile-ui-button svg { width: 60%; height: 60%; fill: #fff; }
         
-        /* --- Notifications --- */
         #notification-container {
-            position: absolute;
-            top: calc(var(--ui-padding) * 2 + 50px);
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            z-index: 250;
-            pointer-events: none;
+            position: absolute; top: 20%; left: 50%; transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 250; pointer-events: none;
         }
         .notification-message {
-            background-color: var(--ui-bg);
-            color: #fff;
-            padding: 10px 20px;
-            border-radius: var(--ui-radius);
-            border: 1px solid var(--border-color);
-            animation: fadeOut 5s forwards;
-            opacity: 1;
-            font-size: clamp(12px, 3vw, 14px);
+            background-color: rgba(0,0,0,0.8); color: #fff; padding: 8px 16px;
+            border-radius: 20px; border: 1px solid #555; font-size: 14px;
+            animation: fadeOut 4s forwards;
         }
-        @keyframes fadeOut {
-            0% { opacity: 1; transform: translateY(0); }
-            80% { opacity: 1; transform: translateY(0); }
-            100% { opacity: 0; transform: translateY(-20px); }
-        }
+        @keyframes fadeOut { 0% { opacity: 0; transform: translateY(10px); } 10% { opacity: 1; transform: translateY(0); } 90% { opacity: 1; } 100% { opacity: 0; transform: translateY(-20px); } }
 
-        /* --- Special Effects --- */
         #sleep-overlay {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #000;
-            opacity: 0;
-            pointer-events: none;
-            z-index: 500;
-            transition: opacity 1.5s ease-in-out;
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #000;
+            opacity: 0; pointer-events: none; z-index: 500; transition: opacity 1.5s ease-in-out;
         }
+        
+        .controls-hint {
+            position: absolute; bottom: 10px; right: 10px; color: #555; font-size: 12px; pointer-events: none;
+            display: none;
+        }
+        @media (min-width: 1024px) { .controls-hint { display: block; } }
     </style>
 </head>
 <body>
 
     <div id="start-screen" class="screen-overlay">
         <h1>Limbo</h1>
-        <p>Используйте E или I, чтобы открыть инвентарь и меню крафта.</p>
+        <p>Вы застряли между мирами. Выживайте, стройте, сохраняйте рассудок.</p>
+        <p style="font-size: 14px; color: #888; margin-bottom: 20px;">ПК: WASD - движение, E - инвентарь<br>Зажать ЛКМ - ломать свои постройки<br>Зажать ПКМ - быстро ставить блоки<br>Моб: Джойстик + Тап</p>
         <button id="prequel-button">Предыстория</button>
-        <button id="start-button">Начать выживание</button>
+        <button id="start-button">Новая игра</button>
         <button id="continue-button" style="display: none;">Продолжить</button>
     </div>
     
     <div id="character-select-screen" class="screen-overlay" style="display: none;">
         <h1>Выберите персонажа</h1>
-        <div id="character-carousel">
+        <div id="character-select-wrapper">
+            <button id="prev-char" class="carousel-btn">&#10094;</button>
+            <div id="character-carousel">
+                <!-- Cards injected here -->
             </div>
+            <button id="next-char" class="carousel-btn">&#10095;</button>
+        </div>
         <div id="character-details">
             <h2 id="char-name"></h2>
             <p id="char-desc"></p>
         </div>
-        <button id="confirm-char-button">Выбрать и начать</button>
-        <button id="back-to-main-menu-button">Назад</button>
+        <button id="confirm-char-button">Начать</button>
+        <button id="back-to-main-menu-button" style="background: transparent; border: none; color: #888; margin-top: 5px;">Назад</button>
     </div>
 
     <div id="prequel-screen" class="screen-overlay" style="display: none;">
         <h1>Предыстория</h1>
-        <p style="max-width: 600px; text-align: center;">ТЫ ЧЕЛОВЕК, КОТОРЫЙ НЕ ПОПАЛ НИ В РАЙ, НИ В АД И ОСТАЛСЯ В ЛИМБО СКИТАТЬСЯ ВЕЧНОСТЬ... или пока тебя не настигнет что-то хуже смерти.</p>
+        <p>ТЫ ЧЕЛОВЕК, КОТОРЫЙ НЕ ПОПАЛ НИ В РАЙ, НИ В АД И ОСТАЛСЯ В ЛИМБО СКИТАТЬСЯ ВЕЧНОСТЬ...</p>
         <button id="back-from-prequel-button">Назад</button>
     </div>
 
     <div id="game-over-screen" class="screen-overlay" style="display: none;">
-        <h1>Вы не можете умереть, но рассудок покинул вас и вы стали очередной тенью в этом месте</h1>
-        <p id="days-survived-text" style="font-size: 1.2em; margin-top: 10px; color: #ffdddd;"></p>
+        <h1 style="color: #ff5555">Рассудок потерян</h1>
+        <p>Вы стали очередной тенью в этом месте.</p>
+        <p id="days-survived-text" style="font-size: 1.2em; color: #fff;"></p>
         <button id="restart-button">Попробовать снова</button>
     </div>
     
     <div id="handbook-screen" class="screen-overlay" style="display: none; z-index: 300;">
         <div id="handbook-panel">
             <div id="handbook-header">
-                <h1>Справочник</h1>
-                <button id="handbook-close-button">&times;</button>
+                <h1 style="font-size: 24px;">Справочник</h1>
+                <button id="handbook-close-button" style="min-width: auto; padding: 5px 15px;">&times;</button>
             </div>
             <div id="handbook-tabs"></div>
             <div id="handbook-content"></div>
@@ -599,10 +498,10 @@
         <div id="crafting-panel" class="inventory-panel">
             <h2>Крафт</h2>
             <ul id="recipe-list"></ul>
-            <div id="crafting-details">
-                <p>Выберите рецепт</p>
+            <div id="crafting-details" style="padding: 10px; background: #222; margin-top: 10px; border-radius: 5px;">
+                <p style="font-size: 14px; color: #777;">Выберите рецепт</p>
             </div>
-            <button id="craft-button" disabled>Создать</button>
+            <button id="craft-button" disabled style="margin-top: auto;">Создать</button>
         </div>
         <div id="inventory-panel" class="inventory-panel">
             <h2>Инвентарь</h2>
@@ -612,7 +511,7 @@
     
     <div id="chest-screen" class="screen-overlay" style="display: none;">
         <div id="player-chest-panel" class="inventory-panel">
-            <h2>Инвентарь</h2>
+            <h2>Ваш Инвентарь</h2>
             <div id="player-chest-grid"></div>
         </div>
         <div id="chest-panel" class="inventory-panel">
@@ -634,7 +533,7 @@
                     <div id="shield-bar"></div>
                 </div>
             </div>
-             <div style="display: flex; gap: 10px; align-items: flex-start;">
+             <div style="display: flex; gap: 10px; align-items: center;">
                 <div id="clock-container" class="game-ui-element">
                     <div id="day-counter">День 1</div>
                     <div id="time-display">06:00</div>
@@ -649,6 +548,7 @@
             </div>
         </div>
         <div id="joystick-container"></div>
+        <div class="controls-hint">E - Инвентарь | Зажми ПКМ - стройка | Зажми ЛКМ - снос</div>
     </div>
     
     <script type="module">
@@ -671,21 +571,19 @@
 
         let sleepOverlay;
         
-        const SAVE_KEY = 'limbo_savegame_offline_v5'; // Increased version to avoid conflicts
-        const today = new Date();
-        const isHalloweenEvent = today.getMonth() === 9; // 9 = October (0-indexed)
-
+        const SAVE_KEY = 'limbo_savegame_new_biomes_v1'; 
+        
         const TILE_SIZE = 32, WORLD_WIDTH = 600, WORLD_HEIGHT = 600;
         const MENTAL_HEALTH_DRAIN_RATE = 0.5, ANGEL_HEAL_RADIUS = TILE_SIZE * 4, ANGEL_HEAL_RATE = 15, HUMAN_HEAL_RADIUS = TILE_SIZE * 3, HUMAN_HEAL_RATE = 5;
-        const DAY_DURATION_SECONDS = 24 * 60; // 24 minutes
+        const DAY_DURATION_SECONDS = 24 * 60; 
         const PLAYER_STUN_DURATION = 3; 
         const ANGEL_SHADOW_DAMAGE = 15;
         const CAMPFIRE_SHADOW_DAMAGE = 25;
-        const BERRY_GROWTH_TIME = 120; // 120 seconds to grow berries
+        const BERRY_GROWTH_TIME = 120;
         const VOID_AURA_RADIUS = TILE_SIZE * 6;
         const VOID_AURA_DAMAGE = 20;
 
-        const CAMPFIRE_FUEL_PER_WOOD = 300; // seconds
+        const CAMPFIRE_FUEL_PER_WOOD = 300; 
         const MAX_CAMPFIRE_FUEL = CAMPFIRE_FUEL_PER_WOOD * 10;
         const CAMPFIRE_PLACEMENT_RANGE = TILE_SIZE * 10;
         const CAMPFIRE_HEAL_RATE = 3; 
@@ -704,6 +602,9 @@
         let traps = []; 
         let projectiles = []; 
         let mousePos = { x: 0, y: 0 };
+        let isMouseDown = false; 
+        let isRightMouseDown = false;
+        let actionTimer = 0;
         let selectedHotbarSlot = 0, keys = {}, gameState = 'start', lastTime = 0, gameTime = DAY_DURATION_SECONDS * 0.25; 
         let autoSaveInterval;
         let activeChest = null;
@@ -735,8 +636,6 @@
             ANCIENT_CIRCUIT: { id: 'ANCIENT_CIRCUIT', name: 'Древняя плата' },
             ASTRAL_ARTIFACT: { id: 'ASTRAL_ARTIFACT', name: 'Астральный артефакт' },
             LIGHT_ORB: { id: 'LIGHT_ORB', name: 'Орб Света' },
-            CANDY_CORN: { id: 'CANDY_CORN', name: 'Конфета' },
-            JACK_O_LANTERN: { id: 'JACK_O_LANTERN', name: 'Светильник Джека' },
             DOOR: { id: 'DOOR', name: 'Дверь' },
             CHEST: { id: 'CHEST', name: 'Сундук' },
             MYSTERIOUS_ARTIFACT: { id: 'MYSTERIOUS_ARTIFACT', name: 'Загадочный артефакт'},
@@ -744,13 +643,17 @@
             BERRY: { id: 'BERRY', name: 'Ягода' },
             WITHERED_GRASS: { id: 'WITHERED_GRASS', name: 'Сухая трава' }
         };
-        const TILE_TYPES = { EMPTY: 0, TREE: 1, ROCK: 2, WOOD_BLOCK: 4, STONE_BLOCK: 5, BIRCH: 6, OAK: 7, SAKURA: 8, RUINS_WALL: 9, ARTIFACT_BOX: 10, CANDY_CORN: 11, JACK_O_LANTERN: 12, BERRY_BUSH: 13, GRASS_TUFT: 14 };
-        const ENTITY_TYPES = { SHADOW: 'SHADOW', ANGEL: 'ANGEL', HUMAN: 'HUMAN', MUTANT_HUMAN: 'MUTANT_HUMAN', ARCHANGEL: 'ARCHANGEL', DEMON: 'DEMON', FALSE_ANGEL: 'FALSE_ANGEL', VOID: 'VOID' };
+        const TILE_TYPES = { EMPTY: 0, TREE: 1, ROCK: 2, WOOD_BLOCK: 4, STONE_BLOCK: 5, BIRCH: 6, OAK: 7, SAKURA: 8, RUINS_WALL: 9, ARTIFACT_BOX: 10, BERRY_BUSH: 13, GRASS_TUFT: 14 };
+        const ENTITY_TYPES = { 
+            SHADOW: 'SHADOW', ANGEL: 'ANGEL', HUMAN: 'HUMAN', MUTANT_HUMAN: 'MUTANT_HUMAN', 
+            ARCHANGEL: 'ARCHANGEL', DEMON: 'DEMON', FALSE_ANGEL: 'FALSE_ANGEL', VOID: 'VOID',
+            STATUE: 'STATUE', MIMIC: 'MIMIC'
+        };
         
         let selectedRecipe = null;
         
         const BIOME_SIZE = 40; 
-        const BIOME_TYPES = { PLAINS: 0, FOREST: 1, BIRCH_FOREST: 2, OAK_FOREST: 3, SAKURA_GROVE: 4 };
+        const BIOME_TYPES = { PLAINS: 0, FOREST: 1, BIRCH_FOREST: 2, OAK_FOREST: 3, SAKURA_GROVE: 4, MINE: 5, STRANGE_VALLEY: 6 };
         let biomeMap;
 
         // --- Graphics ---
@@ -797,8 +700,6 @@
             ancient_circuit: [['#0a0', '#fd0', '#0a0'], [null, '#fd0', null], ['#0a0', '#fd0', '#0a0']],
             astral_artifact: [[null, '#a0f', '#f0f', null], ['#a0f', '#fff', '#fff', '#f0f'], ['#f0f', '#fff', '#fff', '#a0f'], [null, '#a0f', '#f0f', null]],
             light_orb: [[null, '#ff0', null], ['#ff0', '#fff', '#ff0'], [null, '#ff0', null]],
-            candy_corn: [[null, '#ff0', null], ['#f80', '#f80', '#f80'], ['#fff', '#fff', '#fff']],
-            jack_o_lantern: [[null, '#282', '#282', null], ['#f80', '#ff0', '#ff0', '#f80'], ['#f80', '#ff0', '#ff0', '#f80'], ['#f80', '#f80', '#f80', '#f80']],
             door: [['#864', '#975', '#864', '#975'], ['#864', '#975', '#dd0', '#975'], ['#864', '#975', '#864', '#975'], ['#864', '#975', '#864', '#975']],
             chest: [['#a85', '#c96', '#c96', '#a85'], ['#864', '#643', '#643', '#864'], ['#864', '#a85', '#ff0', '#a85'], ['#864', '#a85', '#a85', '#864']],
             mysterious_artifact: [['#f0f', '#0ff', '#f0f'], ['#0ff', '#fff', '#0ff'], ['#f0f', '#0ff', '#f0f']],
@@ -813,7 +714,9 @@
             ],
             grass_tuft: [['#dd0', null, '#cc0'], [null, '#bb0', '#dd0'], ['#dd0', '#aa0', '#cc0']],
             void_boss: [['#201', '#403', '#403', '#201'], ['#403', '#807', '#807', '#403'], ['#403', '#807', '#807', '#403'], ['#201', '#403', '#403', '#201']],
-            void_orb: [[null, '#807', null], ['#807', '#f0f', '#807'], [null, '#807', null]]
+            void_orb: [[null, '#807', null], ['#807', '#f0f', '#807'], [null, '#807', null]],
+            statue: [[null, '#777', null],['#666', '#555', '#666'],['#666', '#666', '#666']],
+            mimic: [['#a85', '#c96', '#c96', '#a85'], ['#864', '#f00', '#f00', '#864'], ['#864', '#a85', '#ff0', '#a85'], ['#864', '#a85', '#a85', '#864']]
         };
         const drawPixelArtOnCtx = (tCtx, x, y, s, p) => {
             if (!p) return;
@@ -858,7 +761,7 @@
                 id: 'medic',
                 name: 'Медик',
                 description: 'Способен создавать целебную мазь всего за 1 Орб Света. Знает цену жизни.',
-                items: [ITEM_TYPES.AXE, ITEM_TYPES.PICKAXE], // Give basic tools to not make it too hard
+                items: [ITEM_TYPES.AXE, ITEM_TYPES.PICKAXE], 
                 art: [['#fff', '#fff'],['#afa', '#afa'],['#888', '#888'],['#444', '#444']]
             },
             {
@@ -879,6 +782,8 @@
                 "Человек": { description: "Обычно пассивен. Оставляет случайный каменный инструмент и блоки. Урон (агрессивный): 5.", art: art.human },
                 "Ангел": { description: "Светлое существо, восстанавливает рассудок. При смерти оставляет Орб Света.", art: art.angel(false) },
                 "Лже-Ангел": { description: "Выглядит как ангел, но является порождением тьмы. Быстро истощает рассудок.", art: art.false_angel(false) },
+                "Статуя": { description: "Скрытный враг Странной Долины. Выглядит как камень, но нападает, если подойти слишком близко. Неразрушим в покое.", art: art.statue },
+                "Мимик": { description: "Лже-сундук. Слегка пульсирует (дышит). Атакует при попытке открыть.", art: art.mimic }
             },
             "Боссы": {
                  "Мутировавший Человек": { description: "Огромный и агрессивный. Атакует вблизи, нанося двойной урон (80) и отбрасывая игрока.", art: art.mutant_human },
@@ -901,7 +806,6 @@
                 "Фонарик": { description: "Освещает область, нанося урон Теням. Урон: 10/сек.", art: art.flashlight },
                 "Астральный артефакт": { description: "Увеличивает скорость и позволяет проходить сквозь стены.", art: art.astral_artifact },
                 "Загадочный артефакт": { description: "Дарует одноразовый магический щит, который поглощает урон.", art: art.mysterious_artifact },
-                "Светильник Джека": { description: "Тыква, найденная во время Хэллоуина. Полностью восстанавливает рассудок.", art: art.jack_o_lantern },
                 "Сундук": { description: "Позволяет хранить предметы. Вмещает 15 стаков.", art: art.chest },
                 "Дверь": { description: "Преграда, через которую может пройти только игрок.", art: art.door },
             },
@@ -913,7 +817,6 @@
                 "Сухая трава": { description: "Редкая трава, используется для создания спальных принадлежностей.", art: art.withered_grass },
                 "Осколок Технологии": { description: "Компонент древних механизмов из руин.", art: art.technology_shard },
                 "Древняя плата": { description: "Редкий компонент из руин.", art: art.ancient_circuit },
-                "Конфета": { description: "Сладость на Хэллоуин. Немного восстанавливает рассудок (+10).", art: art.candy_corn },
             },
             "Мир": {
                 "Дерево": { description: "Источник дерева.", art: art.tree },
@@ -1006,7 +909,6 @@
                 localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
             } catch (error) {
                 console.error("Failed to save game:", error);
-                showNotification("Ошибка сохранения!");
             }
         }
 
@@ -1125,9 +1027,7 @@
         function initGame(options = {}) {
             const { loadingSave = false } = options;
             resizeCanvas();
-            if(isHalloweenEvent && !loadingSave) {
-                 showNotification("🎃 Начался Хэллоуин! Ищите конфеты и тыквы! 🎃");
-            }
+
             sleepOverlay = document.getElementById('sleep-overlay');
             player = { 
                 x: (WORLD_WIDTH * TILE_SIZE) / 2, y: (WORLD_HEIGHT * TILE_SIZE) / 2, 
@@ -1191,7 +1091,10 @@
             const biomeKeys = Object.values(BIOME_TYPES);
             for (let bx = 0; bx < biomeMapWidth; bx++) {
                 for (let by = 0; by < biomeMapHeight; by++) {
-                    biomeMap[bx][by] = biomeKeys[Math.floor(Math.random() * biomeKeys.length)];
+                    const rand = Math.random();
+                    if (rand < 0.05) biomeMap[bx][by] = BIOME_TYPES.STRANGE_VALLEY;
+                    else if (rand < 0.2) biomeMap[bx][by] = BIOME_TYPES.MINE;
+                    else biomeMap[bx][by] = biomeKeys[Math.floor(Math.random() * (biomeKeys.length - 2))]; // -2 to exclude new biomes from random pick here
                 }
             }
             
@@ -1205,40 +1108,53 @@
                     const n = Math.random();
                     world[x][y] = TILE_TYPES.EMPTY;
 
-                    if (Math.random() > 0.98) world[x][y] = TILE_TYPES.ROCK;
-                    if (Math.random() > 0.98 && world[x][y] === TILE_TYPES.EMPTY) {
-                        world[x][y] = TILE_TYPES.BERRY_BUSH;
-                        growableObjects.push({ x, y, type: 'BERRY_BUSH', growth: Math.random() * BERRY_GROWTH_TIME });
-                    }
-                    if (Math.random() > 0.98 && world[x][y] === TILE_TYPES.EMPTY) {
-                        world[x][y] = TILE_TYPES.GRASS_TUFT;
-                    }
+                    if (currentBiome === BIOME_TYPES.MINE) {
+                         if (Math.random() > 0.90) world[x][y] = TILE_TYPES.ROCK;
+                    } else if (currentBiome === BIOME_TYPES.STRANGE_VALLEY) {
+                         if (Math.random() > 0.995) {
+                             // Statues look like rocks but are entities
+                             spawnEntity(ENTITY_TYPES.STATUE, x * TILE_SIZE + TILE_SIZE/2, y * TILE_SIZE + TILE_SIZE/2);
+                         } else if (Math.random() > 0.998) {
+                             // Mimics
+                             spawnEntity(ENTITY_TYPES.MIMIC, x * TILE_SIZE + TILE_SIZE/2, y * TILE_SIZE + TILE_SIZE/2);
+                         } else if (Math.random() > 0.999) {
+                             // Real chests in strange valley
+                             placedObjects.push({ 
+                                 type: 'CHEST', x: x * TILE_SIZE + TILE_SIZE/2, y: y * TILE_SIZE + TILE_SIZE/2, 
+                                 inventory: generateLoot('STRANGE_VALLEY') 
+                             });
+                         }
+                    } else {
+                        // Standard generation
+                        if (Math.random() > 0.98) world[x][y] = TILE_TYPES.ROCK;
+                        if (Math.random() > 0.98 && world[x][y] === TILE_TYPES.EMPTY) {
+                            world[x][y] = TILE_TYPES.BERRY_BUSH;
+                            growableObjects.push({ x, y, type: 'BERRY_BUSH', growth: Math.random() * BERRY_GROWTH_TIME });
+                        }
+                        if (Math.random() > 0.98 && world[x][y] === TILE_TYPES.EMPTY) {
+                            world[x][y] = TILE_TYPES.GRASS_TUFT;
+                        }
 
-                    if (world[x][y] === TILE_TYPES.EMPTY) {
-                        let treeChance = (currentBiome === BIOME_TYPES.PLAINS) ? 0.998 : 0.96;
-                        if (n > treeChance) {
-                             switch(currentBiome) {
-                                case BIOME_TYPES.FOREST:
-                                case BIOME_TYPES.PLAINS:
-                                    world[x][y] = TILE_TYPES.TREE;
-                                    break;
-                                case BIOME_TYPES.BIRCH_FOREST:
-                                    world[x][y] = TILE_TYPES.BIRCH;
-                                    break;
-                                case BIOME_TYPES.OAK_FOREST:
-                                    world[x][y] = TILE_TYPES.OAK;
-                                    break;
-                                case BIOME_TYPES.SAKURA_GROVE:
-                                     world[x][y] = TILE_TYPES.SAKURA;
-                                     break;
+                        if (world[x][y] === TILE_TYPES.EMPTY) {
+                            let treeChance = (currentBiome === BIOME_TYPES.PLAINS) ? 0.998 : 0.96;
+                            if (n > treeChance) {
+                                 switch(currentBiome) {
+                                    case BIOME_TYPES.FOREST:
+                                    case BIOME_TYPES.PLAINS:
+                                        world[x][y] = TILE_TYPES.TREE;
+                                        break;
+                                    case BIOME_TYPES.BIRCH_FOREST:
+                                        world[x][y] = TILE_TYPES.BIRCH;
+                                        break;
+                                    case BIOME_TYPES.OAK_FOREST:
+                                        world[x][y] = TILE_TYPES.OAK;
+                                        break;
+                                    case BIOME_TYPES.SAKURA_GROVE:
+                                         world[x][y] = TILE_TYPES.SAKURA;
+                                         break;
+                                }
                             }
                         }
-                    }
-
-                    if (world[x][y] === TILE_TYPES.EMPTY && isHalloweenEvent) {
-                        const n2 = Math.random();
-                        if (n2 > 0.98) world[x][y] = TILE_TYPES.CANDY_CORN;
-                        else if (n2 > 0.995) world[x][y] = TILE_TYPES.JACK_O_LANTERN; 
                     }
                 }
             }
@@ -1249,6 +1165,27 @@
                 const ruinY = Math.floor(Math.random() * (WORLD_HEIGHT - 20)) + 10;
                 generateRuin(ruinX, ruinY);
             }
+        }
+        
+        function generateLoot(biome) {
+            const inv = Array(15).fill(null);
+            if (biome === 'STRANGE_VALLEY') {
+                const count = 3 + Math.floor(Math.random() * 4);
+                for(let i=0; i<count; i++) {
+                     const roll = Math.random();
+                     let item;
+                     if (roll < 0.2) item = { type: ITEM_TYPES.TECHNOLOGY_SHARD, count: 1 + Math.floor(Math.random() * 3) };
+                     else if (roll < 0.4) item = { type: ITEM_TYPES.ANCIENT_CIRCUIT, count: 1 };
+                     else if (roll < 0.5) item = { type: ITEM_TYPES.FIRE_SWORD, count: 1, durability: 300, maxDurability: 300 };
+                     else if (roll < 0.6) item = { type: ITEM_TYPES.FIRE_PICKAXE, count: 1, durability: 250, maxDurability: 250 };
+                     else if (roll < 0.7) item = { type: ITEM_TYPES.ASTRAL_ARTIFACT, count: 1 };
+                     else item = { type: ITEM_TYPES.DARK_ORB, count: 2 + Math.floor(Math.random() * 3) };
+                     
+                     // Find empty slot
+                     for(let j=0; j<15; j++) { if(!inv[j]) { inv[j] = item; break; } }
+                }
+            }
+            return inv;
         }
 
         function generateRuin(startX, startY) {
@@ -1308,6 +1245,20 @@
         }
         
         function update(dt) {
+            // Handle continuous mouse hold action
+            actionTimer -= dt;
+            if (gameState === 'playing' && !joystick.active) {
+                if (isMouseDown && player.attackCooldown <= 0) {
+                    // Left click hold: only break OWN blocks
+                    handleInteraction(mousePos.x, mousePos.y, true); 
+                }
+                if (isRightMouseDown && actionTimer <= 0) {
+                     // Right click hold: fast build
+                     handleInteraction(mousePos.x, mousePos.y, false, true);
+                     actionTimer = 0.15; // Build speed limiter
+                }
+            }
+
             if (player.pickupCooldown > 0) player.pickupCooldown -= dt;
 
             let timeScale = 1;
@@ -1348,8 +1299,10 @@
                     if (isHoldingAstral) currentSpeed *= 2; 
 
                     let dx = 0, dy = 0;
-                    if (keys['w'] || keys['ArrowUp']) dy -= 1; if (keys['s'] || keys['ArrowDown']) dy += 1;
-                    if (keys['a'] || keys['ArrowLeft']) dx -= 1; if (keys['d'] || keys['ArrowRight']) dx += 1;
+                    if (keys['KeyW'] || keys['ArrowUp']) dy -= 1; 
+                    if (keys['KeyS'] || keys['ArrowDown']) dy += 1;
+                    if (keys['KeyA'] || keys['ArrowLeft']) dx -= 1; 
+                    if (keys['KeyD'] || keys['ArrowRight']) dx += 1;
                     
                     if (joystick.active) {
                         dx += joystick.dx;
@@ -1424,6 +1377,8 @@
         function isPathfindingSolid(gridX, gridY) {
             if (gridX < 0 || gridY < 0 || gridX >= WORLD_WIDTH || gridY >= WORLD_HEIGHT) return true;
             const tileType = world[gridX][gridY];
+            // Treat dormant statues/mimics as solid logic if needed, but for simplicity A* mostly cares about world tiles
+            // If we want enemies to navigate around statues, we'd need to check entity positions too
             return tileType === TILE_TYPES.TREE || tileType === TILE_TYPES.ROCK || tileType === TILE_TYPES.WOOD_BLOCK ||
                    tileType === TILE_TYPES.STONE_BLOCK || tileType === TILE_TYPES.BIRCH || tileType === TILE_TYPES.OAK ||
                    tileType === TILE_TYPES.SAKURA || tileType === TILE_TYPES.RUINS_WALL || tileType === TILE_TYPES.BERRY_BUSH;
@@ -1444,6 +1399,15 @@
                         if(objGridX === gridX && objGridY === gridY) {
                             return true;
                         }
+                    }
+                }
+                // Check against sleeping statues/mimics
+                for (const e of entities) {
+                    if (e === entity) continue;
+                    if ((e.type === ENTITY_TYPES.STATUE && !e.aggressive) || (e.type === ENTITY_TYPES.MIMIC && !e.aggressive)) {
+                         const ex = Math.floor(e.x / TILE_SIZE);
+                         const ey = Math.floor(e.y / TILE_SIZE);
+                         if (ex === gridX && ey === gridY) return true;
                     }
                 }
             }
@@ -1573,7 +1537,15 @@
                 if (!e) continue;
 
                 if (e.health <= 0) {
-                    if (e.type === ENTITY_TYPES.SHADOW && e.lastDamageSource === 'player' && Math.random() < 1/3) {
+                    // Loot logic
+                    if (e.type === ENTITY_TYPES.STATUE) {
+                         addItemToInventory(ITEM_TYPES.STONE, 5);
+                         if (Math.random() < 0.2) addItemToInventory(ITEM_TYPES.DARK_ORB, 1);
+                    } else if (e.type === ENTITY_TYPES.MIMIC) {
+                         addItemToInventory(ITEM_TYPES.WOOD, 3);
+                         if (Math.random() < 0.5) addItemToInventory(ITEM_TYPES.TECHNOLOGY_SHARD, 1);
+                    }
+                    else if (e.type === ENTITY_TYPES.SHADOW && e.lastDamageSource === 'player' && Math.random() < 1/3) {
                         addItemToInventory(ITEM_TYPES.DARK_ORB, 1);
                         showNotification("+1 Шар Тьмы");
                     }
@@ -1600,6 +1572,19 @@
                 if (e.hitTimer > 0) e.hitTimer -= dt;
                 if (e.attackCooldown > 0) e.attackCooldown -= dt;
 
+                // Statue/Mimic Wake Up Logic
+                if (e.type === ENTITY_TYPES.STATUE || e.type === ENTITY_TYPES.MIMIC) {
+                    if (!e.aggressive) {
+                        const dist = Math.hypot(e.x - player.x, e.y - player.y);
+                        if (dist < TILE_SIZE * 2.5) {
+                            e.aggressive = true;
+                            e.aggressionTimer = 9999;
+                            showNotification(e.type === ENTITY_TYPES.STATUE ? "Статуя ожила!" : "Это не сундук!");
+                        }
+                        continue; // Skip movement if sleeping
+                    }
+                }
+
                 let moveX = 0, moveY = 0;
                 let isKnockedBack = Math.abs(e.knockback.x) > 0.1 || Math.abs(e.knockback.y) > 0.1;
 
@@ -1609,7 +1594,7 @@
                     e.knockback.x *= 0.9; 
                     e.knockback.y *= 0.9;
                 } else {
-                    if (e.isBoss || (e.type === ENTITY_TYPES.HUMAN && e.aggressive) || e.type === ENTITY_TYPES.SHADOW) {
+                    if (e.isBoss || (e.type === ENTITY_TYPES.HUMAN && e.aggressive) || e.type === ENTITY_TYPES.SHADOW || ((e.type === ENTITY_TYPES.STATUE || e.type === ENTITY_TYPES.MIMIC) && e.aggressive)) {
                         let target = {x: player.x, y: player.y};
                         if (e.type === ENTITY_TYPES.SHADOW) {
                             let closestDist = Math.hypot(e.x - player.x, e.y - player.y);
@@ -1715,7 +1700,7 @@
                             }
                         }
                     } 
-                    else if (((e.type === ENTITY_TYPES.HUMAN && e.aggressive) || e.type === ENTITY_TYPES.SHADOW) && distToPlayer < TILE_SIZE * 1.5) {
+                    else if (((e.type === ENTITY_TYPES.HUMAN && e.aggressive) || e.type === ENTITY_TYPES.SHADOW || ((e.type === ENTITY_TYPES.STATUE || e.type === ENTITY_TYPES.MIMIC) && e.aggressive)) && distToPlayer < TILE_SIZE * 1.5) {
                         damagePlayer(e.damage);
                         e.attackCooldown = 1.5;
                     }
@@ -1758,12 +1743,21 @@
             const hour = Math.floor((gameTime % DAY_DURATION_SECONDS) / (DAY_DURATION_SECONDS / 24));
             const isNight = hour >= 20 || hour < 5;
 
+            // Mine Logic: Shadows spawn during day if in Mine
+            const gridX = Math.floor(player.x / TILE_SIZE);
+            const gridY = Math.floor(player.y / TILE_SIZE);
+            const biomeX = Math.floor(gridX / BIOME_SIZE);
+            const biomeY = Math.floor(gridY / BIOME_SIZE);
+            const inMine = biomeMap && biomeMap[biomeX] && biomeMap[biomeX][biomeY] === BIOME_TYPES.MINE;
+
             const maxShadows = 15;
             const currentShadows = entities.filter(e => e && e.type === ENTITY_TYPES.SHADOW).length;
             if (currentShadows < maxShadows) {
                 if (isNight && Math.random() < 0.02) {
                     spawnEntity(ENTITY_TYPES.SHADOW);
                 } else if (!isNight && Math.random() < 0.0005) {
+                    spawnEntity(ENTITY_TYPES.SHADOW);
+                } else if (inMine && Math.random() < 0.015) { // High spawn rate in mines
                     spawnEntity(ENTITY_TYPES.SHADOW);
                 }
             }
@@ -1813,6 +1807,8 @@
             else if (type === ENTITY_TYPES.ARCHANGEL) baseHealth = 400;
             else if (type === ENTITY_TYPES.DEMON) baseHealth = 666;
             else if (type === ENTITY_TYPES.VOID) baseHealth = 1000;
+            else if (type === ENTITY_TYPES.STATUE) baseHealth = 1500;
+            else if (type === ENTITY_TYPES.MIMIC) baseHealth = 300;
 
             const health = saveData ? saveData.health : baseHealth;
             
@@ -1830,15 +1826,26 @@
             else if (type === ENTITY_TYPES.ARCHANGEL) entities.push({ ...baseEntity, isBoss: true, type, speed: 60, damage: 15, aggressive: true, attackCooldown: 3.5 });
             else if (type === ENTITY_TYPES.DEMON) entities.push({ ...baseEntity, isBoss: true, type, speed: 90, damage: 25, aggressive: true, attackCooldown: 6 });
             else if (type === ENTITY_TYPES.VOID) entities.push({ ...baseEntity, isBoss: true, type, speed: 70, damage: 40, aggressive: true, attackCooldown: 4 });
+            else if (type === ENTITY_TYPES.STATUE) entities.push({ ...baseEntity, type, speed: 200, damage: 200, aggressive: false }); // Fast & instant kill basically
+            else if (type === ENTITY_TYPES.MIMIC) entities.push({ ...baseEntity, type, speed: 100, damage: 30, aggressive: false });
         }
         
         // --- Rendering ---
         function draw() {
             if (!player || !world) return;
 
+            // Biome darkness logic
+            const gridX = Math.floor(player.x / TILE_SIZE);
+            const gridY = Math.floor(player.y / TILE_SIZE);
+            const biomeX = Math.floor(gridX / BIOME_SIZE);
+            const biomeY = Math.floor(gridY / BIOME_SIZE);
+            const inMine = biomeMap && biomeMap[biomeX] && biomeMap[biomeX][biomeY] === BIOME_TYPES.MINE;
+
             const hour = Math.floor((gameTime % DAY_DURATION_SECONDS) / (DAY_DURATION_SECONDS / 24));
             const isNight = hour >= 20 || hour < 5;
-            const lightLevel = isNight ? 0.4 : 1.0;
+            let lightLevel = isNight ? 0.4 : 1.0;
+            if (inMine) lightLevel = Math.min(lightLevel, 0.5); // Always somewhat dark in mines
+
             canvas.style.filter = `brightness(${lightLevel})`;
             camera.x = player.x - canvas.width / 2; camera.y = player.y - canvas.height / 2;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1859,8 +1866,6 @@
                 else if (tile === TILE_TYPES.STONE_BLOCK) drawPixelArt(dX, dY, TILE_SIZE, art.stone_block);
                 else if (tile === TILE_TYPES.RUINS_WALL) drawPixelArt(dX, dY, TILE_SIZE, art.ruins_wall);
                 else if (tile === TILE_TYPES.ARTIFACT_BOX) drawPixelArt(dX, dY, TILE_SIZE, art.artifact_box);
-                else if (tile === TILE_TYPES.CANDY_CORN) drawPixelArt(dX, dY, TILE_SIZE, art.candy_corn);
-                else if (tile === TILE_TYPES.JACK_O_LANTERN) drawPixelArt(dX, dY, TILE_SIZE, art.jack_o_lantern);
                 else if (tile === TILE_TYPES.BERRY_BUSH) {
                     const bush = growableObjects.find(b => b.x === x && b.y === y);
                     const hasBerries = bush && bush.growth >= BERRY_GROWTH_TIME;
@@ -1907,10 +1912,6 @@
                     drawPixelArt(dX - TILE_SIZE/2, dY - TILE_SIZE/2, TILE_SIZE, art.chest);
                 } else if (obj.type === 'BED') {
                     drawPixelArt(dX - TILE_SIZE/2, dY - TILE_SIZE/2, TILE_SIZE, art.bed);
-                    ctx.fillStyle = '#fff';
-                    ctx.font = '12px "Courier New"';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(`Uses: ${obj.uses}`, dX, dY + TILE_SIZE);
                 }
             });
 
@@ -1936,6 +1937,17 @@
                     ctx.fillStyle = 'rgba(128, 0, 255, 0.1)'; 
                     ctx.fill(); 
                     drawPixelArt(dX - size / 2, dY - size / 2, size, art.void_boss);
+                }
+                else if (e.type === ENTITY_TYPES.STATUE) {
+                    drawPixelArt(dX - TILE_SIZE / 2, dY - TILE_SIZE / 2, TILE_SIZE, art.statue);
+                }
+                else if (e.type === ENTITY_TYPES.MIMIC) {
+                    let mimicSize = TILE_SIZE;
+                    if (!e.aggressive) {
+                        // Breathing effect
+                        mimicSize = TILE_SIZE * (1 + Math.sin(gameTime * 3) * 0.05);
+                    }
+                    drawPixelArt(dX - mimicSize / 2, dY - mimicSize / 2, mimicSize, art.mimic);
                 }
 
 
@@ -1963,6 +1975,20 @@
                  drawPixelArt(p_dX - TILE_SIZE/2, p_dY - TILE_SIZE/2, TILE_SIZE, characterArt);
             }
             
+            // Draw Mouse Cursor Highlight on PC
+            if (!isTouchDevice() && gameState === 'playing') {
+                const mx = mousePos.x;
+                const my = mousePos.y;
+                const mGridX = Math.floor((mx + camera.x) / TILE_SIZE);
+                const mGridY = Math.floor((my + camera.y) / TILE_SIZE);
+                const tileX = mGridX * TILE_SIZE - camera.x;
+                const tileY = mGridY * TILE_SIZE - camera.y;
+
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(tileX, tileY, TILE_SIZE, TILE_SIZE);
+            }
+
             const selectedItem = player.inventory[selectedHotbarSlot];
             
             if (selectedItem && selectedItem.type === ITEM_TYPES.FLASHLIGHT && gameState === 'playing') {
@@ -2005,7 +2031,7 @@
             container.appendChild(notif);
             setTimeout(() => {
                 notif.remove();
-            }, 5000);
+            }, 4000);
         }
 
         function updateUI() {
@@ -2134,7 +2160,7 @@
             const availableRecipes = getRecipes();
             availableRecipes.forEach((recipe, index) => {
                 const li = document.createElement('li');
-                li.textContent = `${recipe.output.type.name} x${recipe.output.count}`;
+                li.innerHTML = `<span>${recipe.output.type.name} x${recipe.output.count}</span>`;
                 li.dataset.recipeIndex = index;
                 const canCraft = canCraftRecipe(recipe);
                 li.classList.toggle('un-craftable', !canCraft);
@@ -2151,16 +2177,16 @@
             const details = document.getElementById('crafting-details');
             const button = document.getElementById('craft-button');
             if (!selectedRecipe) {
-                details.innerHTML = `<p>Выберите рецепт</p>`;
+                details.innerHTML = `<p style="font-size: 14px; color: #777;">Выберите рецепт</p>`;
                 button.disabled = true;
                 return;
             }
             const canCraft = canCraftRecipe(selectedRecipe);
-            let detailsHtml = `<h4>${selectedRecipe.output.type.name}</h4><ul>`;
+            let detailsHtml = `<h4 style="margin: 0 0 10px 0; color: #fff;">${selectedRecipe.output.type.name}</h4><ul style="padding-left: 0;">`;
             selectedRecipe.ingredients.forEach(ing => {
                 const hasCount = countItems(ing.type);
                 const hasEnough = hasCount >= ing.count;
-                detailsHtml += `<li class="${!hasEnough ? 'needed-bad' : ''}" style="list-style: none;">${ing.type.name}: ${hasCount}/${ing.count}</li>`;
+                detailsHtml += `<li class="${!hasEnough ? 'needed-bad' : ''}" style="list-style: none; color: #aaa; margin-bottom: 4px;">${ing.type.name}: ${hasCount}/${ing.count}</li>`;
             });
             detailsHtml += `</ul>`;
             details.innerHTML = detailsHtml;
@@ -2333,7 +2359,7 @@
             }, 500);
         }
 
-        function handleInteraction(clientX, clientY) {
+        function handleInteraction(clientX, clientY, isContinuous = false, isRightClick = false) {
             if (gameState !== 'playing' || player.attackCooldown > 0 || player.stunTimer > 0) return;
             if (isTouchDevice()) {
                 const joyRect = joystickContainer.getBoundingClientRect();
@@ -2344,6 +2370,56 @@
             const mouseX = clientX + camera.x, mouseY = clientY + camera.y;
             const gridX = Math.floor(mouseX / TILE_SIZE), gridY = Math.floor(mouseY / TILE_SIZE);
             const selectedItem = player.inventory[selectedHotbarSlot];
+
+            if (gridX < 0 || gridY < 0 || gridX >= WORLD_WIDTH || gridY >= WORLD_HEIGHT) return;
+            const tile = world[gridX][gridY];
+
+            // --- Continuous Logic (Holding Mouse) ---
+            if (isContinuous) {
+                // If holding Left Click, ONLY break player-placed blocks
+                if (!isRightClick) {
+                    if (tile === TILE_TYPES.WOOD_BLOCK) {
+                        addItemToInventory(ITEM_TYPES.WOOD, 1);
+                        world[gridX][gridY] = TILE_TYPES.EMPTY;
+                        player.attackCooldown = 0.15; // Fast break
+                        return;
+                    } else if (tile === TILE_TYPES.STONE_BLOCK) {
+                        addItemToInventory(ITEM_TYPES.STONE, 1);
+                        world[gridX][gridY] = TILE_TYPES.EMPTY;
+                        player.attackCooldown = 0.15;
+                        return;
+                    } else {
+                        // Do NOT break trees/rocks/others continuously
+                        return;
+                    }
+                }
+                
+                // If holding Right Click, place blocks
+                if (isRightClick) {
+                     if (tile === TILE_TYPES.EMPTY && selectedItem) {
+                         const isPlaceable = [ITEM_TYPES.WOOD, ITEM_TYPES.STONE].some(it => it.id === selectedItem.type.id);
+                         if (isPlaceable) {
+                             // Check collision
+                             let isOccupied = false;
+                             for (const e of entities) {
+                                 if (Math.floor(e.x / TILE_SIZE) === gridX && Math.floor(e.y / TILE_SIZE) === gridY) { isOccupied = true; break; }
+                             }
+                             if(Math.floor(player.x / TILE_SIZE) === gridX && Math.floor(player.y / TILE_SIZE) === gridY) isOccupied = true;
+
+                             if (!isOccupied) {
+                                 if (selectedItem.type === ITEM_TYPES.WOOD && countItems(ITEM_TYPES.WOOD) > 0) { 
+                                     world[gridX][gridY] = TILE_TYPES.WOOD_BLOCK; removeItemFromInventory(player.inventory, ITEM_TYPES.WOOD, 1); 
+                                 } else if (selectedItem.type === ITEM_TYPES.STONE && countItems(ITEM_TYPES.STONE) > 0) { 
+                                     world[gridX][gridY] = TILE_TYPES.STONE_BLOCK; removeItemFromInventory(player.inventory, ITEM_TYPES.STONE, 1); 
+                                 }
+                             }
+                         }
+                     }
+                     return;
+                }
+            }
+
+            // --- Single Click Logic (Below this line runs only on click) ---
 
             // Check for placed object interaction first
             for (const obj of placedObjects) {
@@ -2378,8 +2454,6 @@
 
             if (selectedItem) {
                 if (selectedItem.type === ITEM_TYPES.MENTAL_SALVE) { player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + 50); removeItemFromInventory(player.inventory, ITEM_TYPES.MENTAL_SALVE, 1); player.attackCooldown = 0.5; return; }
-                if (selectedItem.type === ITEM_TYPES.CANDY_CORN) { player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + 10); removeItemFromInventory(player.inventory, ITEM_TYPES.CANDY_CORN, 1); player.attackCooldown = 0.2; return; }
-                if (selectedItem.type === ITEM_TYPES.JACK_O_LANTERN) { player.mentalHealth = player.maxMentalHealth; removeItemFromInventory(player.inventory, ITEM_TYPES.JACK_O_LANTERN, 1); player.attackCooldown = 0.5; return; }
                 if (selectedItem.type === ITEM_TYPES.BERRY) { 
                     player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + 20);
                     player.shield = Math.min(player.maxShield, player.shield + 5);
@@ -2453,8 +2527,6 @@
                 if (didAttack) { player.attackCooldown = 0.5; damageItem(selectedHotbarSlot); return; }
             }
 
-            if (gridX < 0 || gridY < 0 || gridX >= WORLD_WIDTH || gridY >= WORLD_HEIGHT) return;
-            const tile = world[gridX][gridY];
             
             if (tile === TILE_TYPES.GRASS_TUFT) {
                 world[gridX][gridY] = TILE_TYPES.EMPTY;
@@ -2485,8 +2557,6 @@
                 addItemToInventory(drop, 1); showNotification(`+1 ${drop.name}`);
                 player.attackCooldown = 0.3;
             }
-            else if (tile === TILE_TYPES.CANDY_CORN) { world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.CANDY_CORN, 1); player.attackCooldown = 0.2; }
-            else if (tile === TILE_TYPES.JACK_O_LANTERN) { world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.JACK_O_LANTERN, 1); player.attackCooldown = 0.2; }
             else {
                 let usedTool = false;
                 if (isPlayerPlaced(tile)) { 
@@ -2621,30 +2691,54 @@
                 iconCtx.imageSmoothingEnabled = false;
                 drawPixelArtOnCtx(iconCtx, 0, 0, 80, char.art);
                 card.querySelector('.char-icon').appendChild(iconCanvas);
+                
+                card.addEventListener('click', () => {
+                     scrollToCharacter(index);
+                });
+                
                 container.appendChild(card);
             });
+            updateCharacterSelectionVisuals(0);
+        }
+        
+        function scrollToCharacter(index) {
+             const container = document.getElementById('character-carousel');
+             const cards = container.querySelectorAll('.character-card');
+             if (index < 0) index = 0;
+             if (index >= cards.length) index = cards.length - 1;
+             
+             const card = cards[index];
+             const containerWidth = container.offsetWidth;
+             const cardWidth = card.offsetWidth;
+             // Calculate center position
+             const scrollPos = card.offsetLeft - (containerWidth / 2) + (cardWidth / 2);
+             
+             container.scrollTo({ left: scrollPos, behavior: 'smooth' });
         }
 
         function setupCarouselObserver() {
             const carousel = document.getElementById('character-carousel');
             const cards = carousel.querySelectorAll('.character-card');
-            let scrollTimeout;
-
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if(entry.isIntersecting) {
-                        const intersectingIndex = parseInt(entry.target.dataset.charIndex);
-                        if (intersectingIndex !== currentCharIndex) {
-                            updateCharacterSelectionVisuals(intersectingIndex);
-                        }
-                    }
-                });
-            }, { root: carousel, threshold: 0.6 });
-
-            cards.forEach(card => observer.observe(card));
             
-            // Initial setup
-            updateCharacterSelectionVisuals(0);
+            // Add scroll listener for manual tracking
+            carousel.addEventListener('scroll', () => {
+                 let closestCard = null;
+                 let minDiff = Infinity;
+                 const center = carousel.scrollLeft + carousel.offsetWidth / 2;
+                 
+                 cards.forEach((card, index) => {
+                     const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+                     const diff = Math.abs(center - cardCenter);
+                     if (diff < minDiff) {
+                         minDiff = diff;
+                         closestCard = index;
+                     }
+                 });
+                 
+                 if (closestCard !== null && closestCard !== currentCharIndex) {
+                     updateCharacterSelectionVisuals(closestCard);
+                 }
+            });
         }
 
         function updateCharacterSelectionVisuals(newIndex) {
@@ -2656,18 +2750,16 @@
                 card.classList.toggle('selected', index === newIndex);
             });
 
-            // Update details text with a fade effect
             const details = document.getElementById('character-details');
-            details.style.opacity = '0';
-            setTimeout(() => {
-                const char = CHARACTERS[currentCharIndex];
-                if (!char) return;
-                selectedCharacterId = char.id;
-                document.getElementById('char-name').textContent = char.name;
-                document.getElementById('char-desc').textContent = char.description;
-                details.style.opacity = '1';
-            }, 150);
+            const char = CHARACTERS[currentCharIndex];
+            if (!char) return;
+            selectedCharacterId = char.id;
+            document.getElementById('char-name').textContent = char.name;
+            document.getElementById('char-desc').textContent = char.description;
         }
+        
+        document.getElementById('prev-char').addEventListener('click', () => scrollToCharacter(currentCharIndex - 1));
+        document.getElementById('next-char').addEventListener('click', () => scrollToCharacter(currentCharIndex + 1));
         
         // --- Event Listeners ---
         window.addEventListener('resize', () => {
@@ -2675,9 +2767,9 @@
         });
         window.addEventListener('keydown', (e) => {
             if (gameState === 'start' || gameState === 'game_over') return;
-            const key = e.key.toLowerCase();
+            const code = e.code; // Use code for layout independence
             
-            if (key === 'escape') {
+            if (code === 'Escape') {
                 if (inventoryScreen.style.display === 'flex') toggleInventory();
                 if (handbookScreen.style.display === 'flex') toggleHandbook();
                 if (chestScreen.style.display === 'flex') toggleChestScreen();
@@ -2686,25 +2778,40 @@
 
             if (gameState === 'paused' || gameState === 'sleeping') return;
 
-            keys[key] = true;
-            if (key >= '1' && key <= '5') selectedHotbarSlot = parseInt(key) - 1;
-            if (key === 'e' || key === 'i') {
+            keys[code] = true;
+            if (e.key >= '1' && e.key <= '5') selectedHotbarSlot = parseInt(e.key) - 1;
+            if (code === 'KeyE' || code === 'KeyI') {
                 toggleInventory();
             }
         });
-        window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+        window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+        
         window.addEventListener('mousemove', (e) => {
-            mousePos.x = e.clientX;
-            mousePos.y = e.clientY;
+            // Adjust mouse pos relative to canvas to handle any CSS scaling if present
+            const rect = canvas.getBoundingClientRect();
+            mousePos.x = (e.clientX - rect.left) * (canvas.width / rect.width);
+            mousePos.y = (e.clientY - rect.top) * (canvas.height / rect.height);
         });
-        canvas.addEventListener('mousedown', (e) => { if (e.button === 0) handleInteraction(e.clientX, e.clientY); });
+
+        canvas.addEventListener('mousedown', (e) => {
+             if (e.button === 0) {
+                 isMouseDown = true;
+                 handleInteraction(e.clientX, e.clientY); // Initial click
+             } else if (e.button === 2) { // Right click
+                 isRightMouseDown = true;
+                 handleInteraction(e.clientX, e.clientY);
+             }
+        });
+        window.addEventListener('mouseup', () => { isMouseDown = false; isRightMouseDown = false; });
+        window.addEventListener('contextmenu', (e) => e.preventDefault()); // Disable context menu for right click
+
         canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleInteraction(e.touches[0].clientX, e.touches[0].clientY); }, { passive: false });
         
         startButton.addEventListener('click', () => { 
             startScreen.style.display = 'none'; 
             characterSelectScreen.style.display = 'flex';
             populateCharacterCards();
-            setTimeout(setupCarouselObserver, 0); // Allow DOM to update
+            setTimeout(setupCarouselObserver, 100); 
         });
         restartButton.addEventListener('click', () => { 
             location.reload();
@@ -2729,11 +2836,10 @@
         }
         continueButton.addEventListener('click', () => {
             if (!loadGame()) {
-                // if load fails, show char select
                 startScreen.style.display = 'none'; 
                 characterSelectScreen.style.display = 'flex';
                 populateCharacterCards();
-                setTimeout(setupCarouselObserver, 0);
+                setTimeout(setupCarouselObserver, 100);
             }
         });
         window.addEventListener('beforeunload', (e) => {
@@ -2965,4 +3071,3 @@
     </script>
 </body>
 </html>
-
