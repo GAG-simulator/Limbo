@@ -445,7 +445,7 @@
 <body>
 
     <div id="start-screen" class="screen-overlay">
-        <h1>Limbo</h1>
+        <h1>Limbo: Expansion</h1>
         <p>Вы застряли между мирами. Выживайте, стройте, сохраняйте рассудок.</p>
         <p style="font-size: 14px; color: #888; margin-bottom: 20px;">ПК: WASD - движение, E - инвентарь<br>Зажать ЛКМ - ломать свои постройки<br>Зажать ПКМ - быстро ставить блоки<br>Моб: Джойстик + Тап</p>
         <button id="prequel-button">Предыстория</button>
@@ -571,7 +571,7 @@
 
         let sleepOverlay;
         
-        const SAVE_KEY = 'limbo_savegame_new_biomes_v1'; 
+        const SAVE_KEY = 'limbo_savegame_new_ores_v1'; 
         
         const TILE_SIZE = 32, WORLD_WIDTH = 600, WORLD_HEIGHT = 600;
         const MENTAL_HEALTH_DRAIN_RATE = 0.5, ANGEL_HEAL_RADIUS = TILE_SIZE * 4, ANGEL_HEAL_RATE = 15, HUMAN_HEAL_RADIUS = TILE_SIZE * 3, HUMAN_HEAL_RATE = 5;
@@ -613,6 +613,9 @@
         const ITEM_TYPES = {
             WOOD: { id: 'WOOD', name: 'Дерево' }, 
             STONE: { id: 'STONE', name: 'Камень' },
+            GOLD_ORE: { id: 'GOLD_ORE', name: 'Золотая руда' },
+            SILVER_ORE: { id: 'SILVER_ORE', name: 'Серебряная руда' },
+            PLATINUM_ORE: { id: 'PLATINUM_ORE', name: 'Платиновая руда' },
             AXE: { id: 'AXE', name: 'Топор', durability: 50 }, 
             PICKAXE: { id: 'PICKAXE', name: 'Кирка', durability: 50 }, 
             SWORD: { id: 'SWORD', name: 'Меч', durability: 75 },
@@ -624,6 +627,18 @@
             FIRE_PICKAXE: { id: 'FIRE_PICKAXE', name: 'Огненная кирка', durability: 250 }, 
             FIRE_SWORD: { id: 'FIRE_SWORD', name: 'Огненный меч', durability: 300 },
             FIRE_SICKLE: { id: 'FIRE_SICKLE', name: 'Огненный серп', durability: 150 },
+            // New Tools
+            GOLD_AXE: { id: 'GOLD_AXE', name: 'Золотой топор', durability: 75 },
+            GOLD_PICKAXE: { id: 'GOLD_PICKAXE', name: 'Золотая кирка', durability: 75 },
+            GOLD_SWORD: { id: 'GOLD_SWORD', name: 'Золотой меч', durability: 100 },
+            SILVER_AXE: { id: 'SILVER_AXE', name: 'Серебряный топор', durability: 200 },
+            SILVER_PICKAXE: { id: 'SILVER_PICKAXE', name: 'Серебряная кирка', durability: 200 },
+            SILVER_SWORD: { id: 'SILVER_SWORD', name: 'Серебряный меч', durability: 250 },
+            PLATINUM_AXE: { id: 'PLATINUM_AXE', name: 'Платиновый топор', durability: 500 },
+            PLATINUM_PICKAXE: { id: 'PLATINUM_PICKAXE', name: 'Платиновая кирка', durability: 500 },
+            PLATINUM_SWORD: { id: 'PLATINUM_SWORD', name: 'Платиновый меч', durability: 600 },
+            PLATINUM_SHIELD: { id: 'PLATINUM_SHIELD', name: 'Платиновый щит', durability: 400 },
+            
             DARK_ORB: { id: 'DARK_ORB', name: 'Шар Тьмы' }, 
             MENTAL_SALVE: { id: 'MENTAL_SALVE', name: 'Целебная мазь' },
             ACORN: { id: 'ACORN', name: 'Жёлудь' },
@@ -641,9 +656,10 @@
             MYSTERIOUS_ARTIFACT: { id: 'MYSTERIOUS_ARTIFACT', name: 'Загадочный артефакт'},
             BED: { id: 'BED', name: 'Кровать' },
             BERRY: { id: 'BERRY', name: 'Ягода' },
-            WITHERED_GRASS: { id: 'WITHERED_GRASS', name: 'Сухая трава' }
+            WITHERED_GRASS: { id: 'WITHERED_GRASS', name: 'Сухая трава' },
+            COMPASS: { id: 'COMPASS', name: 'Компас' }
         };
-        const TILE_TYPES = { EMPTY: 0, TREE: 1, ROCK: 2, WOOD_BLOCK: 4, STONE_BLOCK: 5, BIRCH: 6, OAK: 7, SAKURA: 8, RUINS_WALL: 9, ARTIFACT_BOX: 10, BERRY_BUSH: 13, GRASS_TUFT: 14 };
+        const TILE_TYPES = { EMPTY: 0, TREE: 1, ROCK: 2, WOOD_BLOCK: 4, STONE_BLOCK: 5, BIRCH: 6, OAK: 7, SAKURA: 8, RUINS_WALL: 9, ARTIFACT_BOX: 10, BERRY_BUSH: 13, GRASS_TUFT: 14, GOLD_NODE: 15, SILVER_NODE: 16, PLATINUM_NODE: 17 };
         const ENTITY_TYPES = { 
             SHADOW: 'SHADOW', ANGEL: 'ANGEL', HUMAN: 'HUMAN', MUTANT_HUMAN: 'MUTANT_HUMAN', 
             ARCHANGEL: 'ARCHANGEL', DEMON: 'DEMON', FALSE_ANGEL: 'FALSE_ANGEL', VOID: 'VOID',
@@ -666,6 +682,9 @@
             oak: [[null, '#282', '#282', null],['#282', '#3a3', '#3a3', '#282'],[null, '#754', '#754', null],[null, '#754', '#754', null]],
             sakura: [[null, '#fbc', '#fbc', null],['#fbc', '#fce', '#fce', '#fbc'],[null, '#532', '#532', null],[null, '#532', '#532', null]],
             rock: [[null, '#888', null],['#aaa', '#888', '#aaa'],['#aaa', '#aaa', '#aaa']],
+            gold_node: [[null, '#da0', null], ['#860', '#fc0', '#860'], ['#860', '#da0', '#860']],
+            silver_node: [[null, '#ddd', null], ['#aaa', '#fff', '#aaa'], ['#aaa', '#ddd', '#aaa']],
+            platinum_node: [[null, '#bce', null], ['#9ab', '#eef', '#9ab'], ['#9ab', '#bce', '#9ab']],
             shadow: (f) => [[null, f ? '#222' : '#111', null],[f ? '#333' : '#222', '#111', f ? '#333' : '#222'],[null, f ? '#222' : '#111', null]],
             angel: (f) => [[f ? '#fff' : '#eee', '#fff', f ? '#fff' : '#eee'],[null, '#ddd', null]],
             axe: [['#ccc', '#aaa', null],[null, '#643', '#ccc'],[null, '#643', null]],
@@ -677,6 +696,20 @@
             stone_axe: [['#888', '#666', null],[null, '#643', '#888'],[null, '#643', null]],
             stone_pickaxe: [['#888', '#888', '#888'],[null, '#643', null],[null, '#643', null]],
             stone_sword: [[null, '#888', null],[null, '#888', null],[null, '#643', null]],
+            gold_ore: [['#fd0', '#da0', '#fd0'], ['#da0', '#b80', '#da0'], ['#fd0', '#da0', '#fd0']],
+            silver_ore: [['#eee', '#ccc', '#eee'], ['#ccc', '#aaa', '#ccc'], ['#eee', '#ccc', '#eee']],
+            platinum_ore: [['#eef', '#ccd', '#eef'], ['#ccd', '#aab', '#ccd'], ['#eef', '#ccd', '#eef']],
+            gold_axe: [['#da0', '#fd0', null],[null, '#643', '#da0'],[null, '#643', null]],
+            gold_pickaxe: [['#da0', '#da0', '#da0'],[null, '#643', null],[null, '#643', null]],
+            gold_sword: [[null, '#da0', null],[null, '#fd0', null],[null, '#643', null]],
+            silver_axe: [['#ccc', '#eee', null],[null, '#643', '#ccc'],[null, '#643', null]],
+            silver_pickaxe: [['#ccc', '#ccc', '#ccc'],[null, '#643', null],[null, '#643', null]],
+            silver_sword: [[null, '#ccc', null],[null, '#eee', null],[null, '#643', null]],
+            platinum_axe: [['#bce', '#eef', null],[null, '#643', '#bce'],[null, '#643', null]],
+            platinum_pickaxe: [['#bce', '#bce', '#bce'],[null, '#643', null],[null, '#643', null]],
+            platinum_sword: [[null, '#bce', null],[null, '#eef', null],[null, '#643', null]],
+            platinum_shield: [[null, '#bce', null], ['#bce', '#eef', '#bce'], [null, '#bce', null]],
+            compass: [[null, '#888', null], ['#888', '#f00', '#888'], [null, '#888', null]],
             dark_orb: [[null, '#201', null], ['#302', '#101', '#302'], [null, '#201', null]],
             mental_salve: [[null, '#afa', null], ['#9c9', '#dfd', '#9c9'], [null, '#afa', null]],
             acorn: [[null, '#864', null],['#864', '#a85', '#864'],[null, '#a85', null]],
@@ -770,6 +803,27 @@
                 description: 'Начинает с огненным серпом и быстрее передвигается, но у него в 2 раза меньше максимальное здоровье.',
                 items: [{type: ITEM_TYPES.FIRE_SICKLE, count: 1}],
                 art: [['#333', '#333'],['#555', '#555'],['#888', '#888'],['#444', '#444']]
+            },
+            {
+                id: 'cyborg',
+                name: 'Киборг',
+                description: 'Раз в минуту полностью восстанавливает щит, если здоровье полно. Начинает с обычной киркой.',
+                items: [ITEM_TYPES.PICKAXE],
+                art: [['#ccc', '#f00'],['#888', '#888'],['#555', '#555'],['#222', '#222']]
+            },
+            {
+                id: 'halfbreed',
+                name: 'Полукровка',
+                description: '2x Скорость, 2x Здоровья. Урон от Ангелов/Костра. Иммунитет к Теням. Старт: Каменный меч.',
+                items: [{type: ITEM_TYPES.STONE_SWORD, count: 1}],
+                art: [['#fff', '#111'],['#ddd', '#222'],['#888', '#888'],['#444', '#444']]
+            },
+            {
+                id: 'explorer',
+                name: 'Исследователь',
+                description: 'Начинает с компасом (указывает на руды/сундуки) и киркой.',
+                items: [{type: ITEM_TYPES.COMPASS, count: 1}, ITEM_TYPES.PICKAXE],
+                art: [['#db9', '#db9'],['#a86', '#a86'],['#888', '#888'],['#543', '#543']]
             }
         ];
         let selectedCharacterId = CHARACTERS[0].id;
@@ -785,13 +839,14 @@
                 "Статуя": { description: "Скрытный враг Странной Долины. Выглядит как камень, но нападает, если подойти слишком близко. Неразрушим в покое.", art: art.statue },
                 "Мимик": { description: "Лже-сундук. Слегка пульсирует (дышит). Атакует при попытке открыть.", art: art.mimic }
             },
-            "Боссы": {
-                 "Мутировавший Человек": { description: "Огромный и агрессивный. Атакует вблизи, нанося двойной урон (80) и отбрасывая игрока.", art: art.mutant_human },
-                "Архангел": { description: "Могущественное существо. Стреляет веером из трёх энергетических шаров.", art: art.archangel },
-                "Демон": { description: "Повелитель теней. Призывает на помощь двух Теней. Очень живуч.", art: art.demon },
-                "Void": { description: "Древнее существо пустоты. Истощает рассудок аурой, атакует вблизи и выпускает снаряды во все стороны. HP: 1000.", art: art.void_boss }
+            "Руды": {
+                "Золотая руда": { description: "Встречается редко. Используется для создания быстрых инструментов.", art: art.gold_node },
+                "Серебряная руда": { description: "Редкая руда. Инструменты прочнее каменных.", art: art.silver_node },
+                "Платиновая руда": { description: "Очень редкая и прочная руда. Лучшие инструменты.", art: art.platinum_node }
             },
             "Предметы": {
+                "Компас": { description: "Указывает на ближайшие залежи руды, сундуки или артефакты.", art: art.compass },
+                "Платиновый щит": { description: "Блокирует 80% урона, если держать в руках.", art: art.platinum_shield },
                 "Топор (Каменный)": { description: "Прочный топор. Добывает в 2 раза больше ресурсов.", art: art.stone_axe },
                 "Кирка (Каменная)": { description: "Прочная кирка. Добывает в 2 раза больше ресурсов.", art: art.stone_pickaxe },
                 "Меч (Каменный)": { description: "Прочный меч. Урон: 5.", art: art.stone_sword },
@@ -832,6 +887,20 @@
                 { output: { type: ITEM_TYPES.STONE_AXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.STONE, count: 3 }] },
                 { output: { type: ITEM_TYPES.STONE_PICKAXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.STONE, count: 3 }] },
                 { output: { type: ITEM_TYPES.STONE_SWORD, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.STONE, count: 2 }] },
+                // Gold Tools
+                { output: { type: ITEM_TYPES.GOLD_AXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.GOLD_ORE, count: 3 }] },
+                { output: { type: ITEM_TYPES.GOLD_PICKAXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.GOLD_ORE, count: 3 }] },
+                { output: { type: ITEM_TYPES.GOLD_SWORD, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.GOLD_ORE, count: 2 }] },
+                // Silver Tools
+                { output: { type: ITEM_TYPES.SILVER_AXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.SILVER_ORE, count: 3 }] },
+                { output: { type: ITEM_TYPES.SILVER_PICKAXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.SILVER_ORE, count: 3 }] },
+                { output: { type: ITEM_TYPES.SILVER_SWORD, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.SILVER_ORE, count: 2 }] },
+                // Platinum Tools & Shield
+                { output: { type: ITEM_TYPES.PLATINUM_AXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.PLATINUM_ORE, count: 3 }] },
+                { output: { type: ITEM_TYPES.PLATINUM_PICKAXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.PLATINUM_ORE, count: 3 }] },
+                { output: { type: ITEM_TYPES.PLATINUM_SWORD, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.PLATINUM_ORE, count: 2 }] },
+                { output: { type: ITEM_TYPES.PLATINUM_SHIELD, count: 1 }, ingredients: [{ type: ITEM_TYPES.PLATINUM_ORE, count: 3 }, { type: ITEM_TYPES.SILVER_ORE, count: 2 }] },
+
                 { output: { type: ITEM_TYPES.SICKLE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.STONE, count: 2 }] },
                 { output: { type: ITEM_TYPES.MENTAL_SALVE, count: 1 }, ingredients: [{ type: ITEM_TYPES.DARK_ORB, count: 1 }, { type: ITEM_TYPES.STONE, count: 5 }] },
                 { output: { type: ITEM_TYPES.DESPAIR_CRYSTAL, count: 1 }, ingredients: [{ type: ITEM_TYPES.ACORN, count: 1 }, { type: ITEM_TYPES.DARK_ORB, count: 2 }, { type: ITEM_TYPES.WOOD, count: 10 }] },
@@ -1035,13 +1104,18 @@
                 shield: 0, maxShield: 100,
                 inventory: Array(21).fill(null), // 20 + 1 drop slot
                 attackCooldown: 0, stunTimer: 0, 
-                pickupCooldown: 0, knockback: {x: 0, y: 0}, isSleeping: false 
+                pickupCooldown: 0, knockback: {x: 0, y: 0}, isSleeping: false,
+                shieldRegenTimer: 0 
             };
             
             if (selectedCharacterId === 'reaper') {
-                player.speed *= 1.25; // 25% faster
+                player.speed *= 1.25; 
                 player.maxMentalHealth = 50;
                 player.mentalHealth = 50;
+            } else if (selectedCharacterId === 'halfbreed') {
+                player.speed *= 2.0;
+                player.maxMentalHealth = 200;
+                player.mentalHealth = 200;
             }
 
             camera = { x: 0, y: 0 };
@@ -1094,7 +1168,7 @@
                     const rand = Math.random();
                     if (rand < 0.05) biomeMap[bx][by] = BIOME_TYPES.STRANGE_VALLEY;
                     else if (rand < 0.2) biomeMap[bx][by] = BIOME_TYPES.MINE;
-                    else biomeMap[bx][by] = biomeKeys[Math.floor(Math.random() * (biomeKeys.length - 2))]; // -2 to exclude new biomes from random pick here
+                    else biomeMap[bx][by] = biomeKeys[Math.floor(Math.random() * (biomeKeys.length - 2))]; 
                 }
             }
             
@@ -1112,13 +1186,10 @@
                          if (Math.random() > 0.90) world[x][y] = TILE_TYPES.ROCK;
                     } else if (currentBiome === BIOME_TYPES.STRANGE_VALLEY) {
                          if (Math.random() > 0.995) {
-                             // Statues look like rocks but are entities
                              spawnEntity(ENTITY_TYPES.STATUE, x * TILE_SIZE + TILE_SIZE/2, y * TILE_SIZE + TILE_SIZE/2);
                          } else if (Math.random() > 0.998) {
-                             // Mimics
                              spawnEntity(ENTITY_TYPES.MIMIC, x * TILE_SIZE + TILE_SIZE/2, y * TILE_SIZE + TILE_SIZE/2);
                          } else if (Math.random() > 0.999) {
-                             // Real chests in strange valley
                              placedObjects.push({ 
                                  type: 'CHEST', x: x * TILE_SIZE + TILE_SIZE/2, y: y * TILE_SIZE + TILE_SIZE/2, 
                                  inventory: generateLoot('STRANGE_VALLEY') 
@@ -1133,6 +1204,14 @@
                         }
                         if (Math.random() > 0.98 && world[x][y] === TILE_TYPES.EMPTY) {
                             world[x][y] = TILE_TYPES.GRASS_TUFT;
+                        }
+                        
+                        // Ores
+                        if (world[x][y] === TILE_TYPES.EMPTY) {
+                            const oreRoll = Math.random();
+                            if (oreRoll < 0.001) world[x][y] = TILE_TYPES.PLATINUM_NODE; // Very Rare
+                            else if (oreRoll < 0.005) world[x][y] = TILE_TYPES.SILVER_NODE; // Rare
+                            else if (oreRoll < 0.012) world[x][y] = TILE_TYPES.GOLD_NODE; // Uncommon
                         }
 
                         if (world[x][y] === TILE_TYPES.EMPTY) {
@@ -1229,7 +1308,20 @@
         }
         
         // --- Damage and State Update ---
-        function damagePlayer(amount) {
+        function damagePlayer(amount, sourceType) {
+             const selectedItem = player.inventory[selectedHotbarSlot];
+            
+            // Shield Block Logic
+            if (selectedItem && selectedItem.type === ITEM_TYPES.PLATINUM_SHIELD) {
+                amount *= 0.2; // 80% reduction
+                damageItem(selectedHotbarSlot, amount); // Degrade shield
+            }
+
+            // Half-breed Immunity
+            if (selectedCharacterId === 'halfbreed' && sourceType === 'SHADOW') {
+                return; // Immune
+            }
+
             if (player.shield > 0) {
                 const shieldDamage = Math.min(amount, player.shield);
                 player.shield -= shieldDamage;
@@ -1260,6 +1352,18 @@
             }
 
             if (player.pickupCooldown > 0) player.pickupCooldown -= dt;
+
+            // Cyborg Regeneration
+            if (selectedCharacterId === 'cyborg') {
+                player.shieldRegenTimer += dt;
+                if (player.shieldRegenTimer >= 60) {
+                    player.shieldRegenTimer = 0;
+                    if (player.mentalHealth >= player.maxMentalHealth) {
+                        player.shield = player.maxShield;
+                        showNotification("Системы восстановлены.");
+                    }
+                }
+            }
 
             let timeScale = 1;
             const hour = Math.floor((gameTime % DAY_DURATION_SECONDS) / (DAY_DURATION_SECONDS / 24));
@@ -1342,7 +1446,7 @@
                         player.stunTimer = PLAYER_STUN_DURATION;
                         showNotification("Вы попали в капкан!");
                     } else if (trap.type === 'TRIPWIRE') {
-                        damagePlayer(30);
+                        damagePlayer(30, 'TRAP');
                         showNotification("Вы задели растяжку!");
                     }
                     traps.splice(i, 1);
@@ -1350,7 +1454,7 @@
                 }
             }
 
-            damagePlayer(MENTAL_HEALTH_DRAIN_RATE * dt);
+            damagePlayer(MENTAL_HEALTH_DRAIN_RATE * dt, 'DRAIN');
             
             updatePlacedObjects(dt);
             updateGrowables(dt);
@@ -1377,8 +1481,6 @@
         function isPathfindingSolid(gridX, gridY) {
             if (gridX < 0 || gridY < 0 || gridX >= WORLD_WIDTH || gridY >= WORLD_HEIGHT) return true;
             const tileType = world[gridX][gridY];
-            // Treat dormant statues/mimics as solid logic if needed, but for simplicity A* mostly cares about world tiles
-            // If we want enemies to navigate around statues, we'd need to check entity positions too
             return tileType === TILE_TYPES.TREE || tileType === TILE_TYPES.ROCK || tileType === TILE_TYPES.WOOD_BLOCK ||
                    tileType === TILE_TYPES.STONE_BLOCK || tileType === TILE_TYPES.BIRCH || tileType === TILE_TYPES.OAK ||
                    tileType === TILE_TYPES.SAKURA || tileType === TILE_TYPES.RUINS_WALL || tileType === TILE_TYPES.BERRY_BUSH;
@@ -1426,7 +1528,11 @@
 
                         const distToPlayer = Math.hypot(player.x - obj.x, player.y - obj.y);
                         if (distToPlayer < CAMPFIRE_HEAL_RADIUS) {
-                            player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + CAMPFIRE_HEAL_RATE * dt);
+                            if (selectedCharacterId === 'halfbreed') {
+                                damagePlayer(CAMPFIRE_HEAL_RATE * dt, 'CAMPFIRE');
+                            } else {
+                                player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + CAMPFIRE_HEAL_RATE * dt);
+                            }
                         }
 
                         entities.forEach(e => {
@@ -1486,7 +1592,7 @@
                 }
                 
                 if (Math.hypot(p.x - player.x, p.y - player.y) < TILE_SIZE * 0.75) {
-                    damagePlayer(p.damage);
+                    damagePlayer(p.damage, 'PROJECTILE');
                     projectiles.splice(i, 1);
                     continue;
                 }
@@ -1552,7 +1658,7 @@
                     else if (e.type === ENTITY_TYPES.ANGEL) {
                         addItemToInventory(ITEM_TYPES.LIGHT_ORB, 1);
                         showNotification("+1 Орб Света");
-                        if (e.lastDamageSource === 'player') damagePlayer(25);
+                        if (e.lastDamageSource === 'player') damagePlayer(25, 'ANGEL');
                     }
                     else if (e.type === ENTITY_TYPES.HUMAN && !e.isBoss) {
                         const stoneTools = [ITEM_TYPES.STONE_AXE, ITEM_TYPES.STONE_PICKAXE, ITEM_TYPES.STONE_SWORD];
@@ -1628,7 +1734,10 @@
                         moveX = Math.cos(e.angle) * e.speed * dt; moveY = Math.sin(e.angle) * e.speed * dt;
                         
                         if (e.type === ENTITY_TYPES.ANGEL) {
-                            if (selectedCharacterId !== 'killer' && Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS) {
+                            if (selectedCharacterId === 'halfbreed') {
+                                if (Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS) damagePlayer(ANGEL_HEAL_RATE * dt, 'ANGEL');
+                            }
+                            else if (selectedCharacterId !== 'killer' && Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS) {
                                 player.mentalHealth = Math.min(player.maxMentalHealth, player.mentalHealth + ANGEL_HEAL_RATE * dt);
                             }
                             entities.forEach(shadow => {
@@ -1638,11 +1747,11 @@
                                 }
                             });
                         } else if (e.type === ENTITY_TYPES.FALSE_ANGEL) {
-                             if (Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS) damagePlayer(30 * dt);
+                             if (Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS) damagePlayer(30 * dt, 'FALSE_ANGEL');
                         }
                         else if (e.type === ENTITY_TYPES.VOID) {
                            if (Math.hypot(e.x - player.x, e.y - player.y) < VOID_AURA_RADIUS) {
-                                damagePlayer(VOID_AURA_DAMAGE * dt);
+                                damagePlayer(VOID_AURA_DAMAGE * dt, 'VOID');
                             }
                         }
                         
@@ -1666,7 +1775,7 @@
                             e.attackCooldown = 3.5;
                         }
                         else if (e.type === ENTITY_TYPES.MUTANT_HUMAN && distToPlayer < TILE_SIZE * 2) {
-                            damagePlayer(e.damage * 2);
+                            damagePlayer(e.damage * 2, 'MUTANT');
                             const angle = Math.atan2(player.y - e.y, player.x - e.x);
                             player.knockback.x = Math.cos(angle) * 500;
                             player.knockback.y = Math.sin(angle) * 500;
@@ -1683,7 +1792,7 @@
                         }
                          else if (e.type === ENTITY_TYPES.VOID) {
                             if (distToPlayer < TILE_SIZE * 2) {
-                                damagePlayer(e.damage * 2);
+                                damagePlayer(e.damage * 2, 'VOID');
                                 const angle = Math.atan2(player.y - e.y, player.x - e.x);
                                 player.knockback.x = Math.cos(angle) * 500;
                                 player.knockback.y = Math.sin(angle) * 500;
@@ -1701,7 +1810,7 @@
                         }
                     } 
                     else if (((e.type === ENTITY_TYPES.HUMAN && e.aggressive) || e.type === ENTITY_TYPES.SHADOW || ((e.type === ENTITY_TYPES.STATUE || e.type === ENTITY_TYPES.MIMIC) && e.aggressive)) && distToPlayer < TILE_SIZE * 1.5) {
-                        damagePlayer(e.damage);
+                        damagePlayer(e.damage, e.type);
                         e.attackCooldown = 1.5;
                     }
                 }
@@ -1864,6 +1973,9 @@
                 else if (tile === TILE_TYPES.ROCK) drawPixelArt(dX, dY, TILE_SIZE, art.rock);
                 else if (tile === TILE_TYPES.WOOD_BLOCK) drawPixelArt(dX, dY, TILE_SIZE, art.wood_block);
                 else if (tile === TILE_TYPES.STONE_BLOCK) drawPixelArt(dX, dY, TILE_SIZE, art.stone_block);
+                else if (tile === TILE_TYPES.GOLD_NODE) drawPixelArt(dX, dY, TILE_SIZE, art.gold_node);
+                else if (tile === TILE_TYPES.SILVER_NODE) drawPixelArt(dX, dY, TILE_SIZE, art.silver_node);
+                else if (tile === TILE_TYPES.PLATINUM_NODE) drawPixelArt(dX, dY, TILE_SIZE, art.platinum_node);
                 else if (tile === TILE_TYPES.RUINS_WALL) drawPixelArt(dX, dY, TILE_SIZE, art.ruins_wall);
                 else if (tile === TILE_TYPES.ARTIFACT_BOX) drawPixelArt(dX, dY, TILE_SIZE, art.artifact_box);
                 else if (tile === TILE_TYPES.BERRY_BUSH) {
@@ -2003,6 +2115,53 @@
                 ctx.restore();
             }
 
+             // Compass drawing
+             if (selectedItem && selectedItem.type === ITEM_TYPES.COMPASS && gameState === 'playing') {
+                let nearest = null;
+                let minDist = Infinity;
+                
+                // Find nearest ore/chest
+                // Scan a larger area or whole world? Whole world is fine for 600x600 grid in JS if optimized, but let's limit scan radius for performance if needed. 
+                // Actually scanning placedObjects is fast. Scanning world tiles is slow.
+                // Let's scan visible + padding, or just scan entire placedObjects and a random sampling of tiles?
+                // Better: Scan a radius of 50 tiles.
+                const scanRadius = 50;
+                const pGridX = Math.floor(player.x / TILE_SIZE);
+                const pGridY = Math.floor(player.y / TILE_SIZE);
+                
+                for(let x = Math.max(0, pGridX - scanRadius); x < Math.min(WORLD_WIDTH, pGridX + scanRadius); x++) {
+                    for(let y = Math.max(0, pGridY - scanRadius); y < Math.min(WORLD_HEIGHT, pGridY + scanRadius); y++) {
+                        const t = world[x][y];
+                        if (t === TILE_TYPES.GOLD_NODE || t === TILE_TYPES.SILVER_NODE || t === TILE_TYPES.PLATINUM_NODE || t === TILE_TYPES.ARTIFACT_BOX) {
+                            const dist = Math.hypot(x*TILE_SIZE - player.x, y*TILE_SIZE - player.y);
+                            if (dist < minDist) { minDist = dist; nearest = {x: x*TILE_SIZE + TILE_SIZE/2, y: y*TILE_SIZE + TILE_SIZE/2}; }
+                        }
+                    }
+                }
+                // Check chests too
+                placedObjects.forEach(obj => {
+                     if (obj.type === 'CHEST') {
+                        const dist = Math.hypot(obj.x - player.x, obj.y - player.y);
+                        if (dist < minDist) { minDist = dist; nearest = {x: obj.x, y: obj.y}; }
+                     }
+                });
+
+                if (nearest) {
+                     const angle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
+                     ctx.save();
+                     ctx.translate(p_dX, p_dY);
+                     ctx.rotate(angle);
+                     ctx.fillStyle = '#f00';
+                     ctx.beginPath();
+                     ctx.moveTo(30, 0);
+                     ctx.lineTo(20, 5);
+                     ctx.lineTo(20, -5);
+                     ctx.fill();
+                     ctx.restore();
+                }
+            }
+
+
             if (selectedItem && gameState === 'playing' && !player.isSleeping) {
                 let artKey = Object.keys(ITEM_TYPES).find(key => ITEM_TYPES[key].id === selectedItem.type.id)?.toLowerCase();
                 if (selectedItem.type.id === 'WOOD') artKey = 'wood_block';
@@ -2087,6 +2246,9 @@
                 let artKey = Object.keys(ITEM_TYPES).find(key => ITEM_TYPES[key].id === item.type.id)?.toLowerCase();
                 if (item.type.id === 'WOOD') artKey = 'wood_block';
                 if (item.type.id === 'STONE') artKey = 'stone_block';
+                if (item.type.id === 'GOLD_ORE') artKey = 'gold_ore';
+                if (item.type.id === 'SILVER_ORE') artKey = 'silver_ore';
+                if (item.type.id === 'PLATINUM_ORE') artKey = 'platinum_ore';
                 
                 if (art[artKey]) {
                     drawPixelArtOnCtx(iconCtx, 0, 0, iconSize, art[artKey]);
@@ -2500,7 +2662,7 @@
                         didAttack = true;
                         if (e.health > 0) { 
                             if (e.type === ENTITY_TYPES.HUMAN && !e.isBoss) { e.aggressive = true; e.aggressionTimer = 30; } 
-                            else if (e.type === ENTITY_TYPES.ANGEL) { damagePlayer(10); } 
+                            else if (e.type === ENTITY_TYPES.ANGEL) { damagePlayer(10, 'ANGEL'); } 
                         }
                     }
                 });
@@ -2510,6 +2672,9 @@
                 let swordDamage = 3, knockbackForce = 250, range = TILE_SIZE * 1.2;
                 if(toolType === 'STONE_SWORD') { swordDamage = 5; knockbackForce = 300; }
                 if(toolType === 'FIRE_SWORD') { swordDamage = 25; knockbackForce = 400; range = TILE_SIZE * 1.5; }
+                if(toolType === 'GOLD_SWORD') { swordDamage = 4; knockbackForce = 280; }
+                if(toolType === 'SILVER_SWORD') { swordDamage = 10; knockbackForce = 350; }
+                if(toolType === 'PLATINUM_SWORD') { swordDamage = 40; knockbackForce = 500; }
                 
                 entities.forEach(e => { 
                     if (!e) return;
@@ -2520,7 +2685,7 @@
                         didAttack = true;
                         if (e.health > 0) { 
                             if (e.type === ENTITY_TYPES.HUMAN && !e.isBoss) { e.aggressive = true; e.aggressionTimer = 30; } 
-                            else if (e.type === ENTITY_TYPES.ANGEL) { damagePlayer(10); } 
+                            else if (e.type === ENTITY_TYPES.ANGEL) { damagePlayer(10, 'ANGEL'); } 
                         }
                     }
                 });
@@ -2564,7 +2729,13 @@
                     else if (tile === TILE_TYPES.STONE_BLOCK) addItemToInventory(ITEM_TYPES.STONE, 1);
                     world[gridX][gridY] = TILE_TYPES.EMPTY;
                 } else if (selectedItem) {
-                    const toolPower = selectedItem.type.id.includes('STONE') ? 2 : (selectedItem.type.id.includes('FIRE') ? 5 : 1);
+                    const toolPower = 
+                        selectedItem.type.id.includes('PLATINUM') ? 10 : 
+                        selectedItem.type.id.includes('FIRE') ? 8 : 
+                        selectedItem.type.id.includes('SILVER') ? 4 : 
+                        selectedItem.type.id.includes('GOLD') ? 3 : 
+                        selectedItem.type.id.includes('STONE') ? 2 : 1;
+                        
                     if ((tile === TILE_TYPES.TREE || tile === TILE_TYPES.BIRCH || tile === TILE_TYPES.OAK || tile === TILE_TYPES.SAKURA) && toolType.includes('AXE')) {
                          if (tile === TILE_TYPES.TREE) addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower);
                          else if (tile === TILE_TYPES.BIRCH) addItemToInventory(ITEM_TYPES.WOOD, 2 * toolPower); 
@@ -2574,7 +2745,16 @@
                     } 
                     else if (tile === TILE_TYPES.ROCK && toolType.includes('PICKAXE')) { 
                         world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.STONE, 1 * toolPower); usedTool = true;
-                    } 
+                    }
+                    else if (tile === TILE_TYPES.GOLD_NODE && toolType.includes('PICKAXE') && toolPower >= 2) {
+                         world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.GOLD_ORE, 1 + Math.floor(Math.random() * 2)); usedTool = true; showNotification("+ Золотая руда");
+                    }
+                    else if (tile === TILE_TYPES.SILVER_NODE && toolType.includes('PICKAXE') && toolPower >= 2) {
+                         world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.SILVER_ORE, 1 + Math.floor(Math.random() * 2)); usedTool = true; showNotification("+ Серебряная руда");
+                    }
+                    else if (tile === TILE_TYPES.PLATINUM_NODE && toolType.includes('PICKAXE') && toolPower >= 3) {
+                         world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.PLATINUM_ORE, 1); usedTool = true; showNotification("+ Платиновая руда");
+                    }
                     else if (tile === TILE_TYPES.EMPTY) {
                         const isPlaceable = [ITEM_TYPES.WOOD, ITEM_TYPES.STONE, ITEM_TYPES.DOOR, ITEM_TYPES.CHEST, ITEM_TYPES.BED, ITEM_TYPES.CAMPFIRE].some(it => it.id === selectedItem.type.id);
                         if (isPlaceable) {
