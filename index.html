@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>LIMBO</title>
+    <title>LIMBO: Void Update</title>
     <style>
         :root {
             --ui-bg: rgba(20, 20, 20, 0.85);
@@ -445,8 +445,8 @@
 <body>
 
     <div id="start-screen" class="screen-overlay">
-        <h1>Limbo: Expansion</h1>
-        <p>Вы застряли между мирами. Выживайте, стройте, сохраняйте рассудок.</p>
+        <h1>Limbo: Void Update</h1>
+        <p>Вы застряли между мирами. Теперь Бездна стала еще ближе.</p>
         <p style="font-size: 14px; color: #888; margin-bottom: 20px;">ПК: WASD - движение, E - инвентарь<br>Зажать ЛКМ - ломать свои постройки<br>Зажать ПКМ - быстро ставить блоки<br>Моб: Джойстик + Тап</p>
         <button id="prequel-button">Предыстория</button>
         <button id="start-button">Новая игра</button>
@@ -571,7 +571,7 @@
 
         let sleepOverlay;
         
-        const SAVE_KEY = 'limbo_savegame_new_ores_v1'; 
+        const SAVE_KEY = 'limbo_savegame_void_update_v2'; 
         
         const TILE_SIZE = 32, WORLD_WIDTH = 600, WORLD_HEIGHT = 600;
         const MENTAL_HEALTH_DRAIN_RATE = 0.5, ANGEL_HEAL_RADIUS = TILE_SIZE * 4, ANGEL_HEAL_RATE = 15, HUMAN_HEAL_RADIUS = TILE_SIZE * 3, HUMAN_HEAL_RATE = 5;
@@ -608,7 +608,9 @@
         let selectedHotbarSlot = 0, keys = {}, gameState = 'start', lastTime = 0, gameTime = DAY_DURATION_SECONDS * 0.25; 
         let autoSaveInterval;
         let activeChest = null;
-        
+        let bossSpawnedToday = false;
+        let lastDay = 0;
+
         // --- Data Structures ---
         const ITEM_TYPES = {
             WOOD: { id: 'WOOD', name: 'Дерево' }, 
@@ -616,6 +618,7 @@
             GOLD_ORE: { id: 'GOLD_ORE', name: 'Золотая руда' },
             SILVER_ORE: { id: 'SILVER_ORE', name: 'Серебряная руда' },
             PLATINUM_ORE: { id: 'PLATINUM_ORE', name: 'Платиновая руда' },
+            VOID_SHARD: { id: 'VOID_SHARD', name: 'Осколок Бездны' }, // NEW
             AXE: { id: 'AXE', name: 'Топор', durability: 50 }, 
             PICKAXE: { id: 'PICKAXE', name: 'Кирка', durability: 50 }, 
             SWORD: { id: 'SWORD', name: 'Меч', durability: 75 },
@@ -631,12 +634,15 @@
             GOLD_AXE: { id: 'GOLD_AXE', name: 'Золотой топор', durability: 75 },
             GOLD_PICKAXE: { id: 'GOLD_PICKAXE', name: 'Золотая кирка', durability: 75 },
             GOLD_SWORD: { id: 'GOLD_SWORD', name: 'Золотой меч', durability: 100 },
+            GOLD_SICKLE: { id: 'GOLD_SICKLE', name: 'Золотой серп', durability: 75 }, // NEW
             SILVER_AXE: { id: 'SILVER_AXE', name: 'Серебряный топор', durability: 200 },
             SILVER_PICKAXE: { id: 'SILVER_PICKAXE', name: 'Серебряная кирка', durability: 200 },
             SILVER_SWORD: { id: 'SILVER_SWORD', name: 'Серебряный меч', durability: 250 },
+            SILVER_SICKLE: { id: 'SILVER_SICKLE', name: 'Серебряный серп', durability: 200 }, // NEW
             PLATINUM_AXE: { id: 'PLATINUM_AXE', name: 'Платиновый топор', durability: 500 },
             PLATINUM_PICKAXE: { id: 'PLATINUM_PICKAXE', name: 'Платиновая кирка', durability: 500 },
             PLATINUM_SWORD: { id: 'PLATINUM_SWORD', name: 'Платиновый меч', durability: 600 },
+            PLATINUM_SICKLE: { id: 'PLATINUM_SICKLE', name: 'Платиновый серп', durability: 500 }, // NEW
             PLATINUM_SHIELD: { id: 'PLATINUM_SHIELD', name: 'Платиновый щит', durability: 400 },
             
             DARK_ORB: { id: 'DARK_ORB', name: 'Шар Тьмы' }, 
@@ -650,6 +656,7 @@
             TECHNOLOGY_SHARD: { id: 'TECHNOLOGY_SHARD', name: 'Осколок Технологии' },
             ANCIENT_CIRCUIT: { id: 'ANCIENT_CIRCUIT', name: 'Древняя плата' },
             ASTRAL_ARTIFACT: { id: 'ASTRAL_ARTIFACT', name: 'Астральный артефакт' },
+            VOID_ARTIFACT: { id: 'VOID_ARTIFACT', name: 'Артефакт Бездны' }, // NEW
             LIGHT_ORB: { id: 'LIGHT_ORB', name: 'Орб Света' },
             DOOR: { id: 'DOOR', name: 'Дверь' },
             CHEST: { id: 'CHEST', name: 'Сундук' },
@@ -659,7 +666,7 @@
             WITHERED_GRASS: { id: 'WITHERED_GRASS', name: 'Сухая трава' },
             COMPASS: { id: 'COMPASS', name: 'Компас' }
         };
-        const TILE_TYPES = { EMPTY: 0, TREE: 1, ROCK: 2, WOOD_BLOCK: 4, STONE_BLOCK: 5, BIRCH: 6, OAK: 7, SAKURA: 8, RUINS_WALL: 9, ARTIFACT_BOX: 10, BERRY_BUSH: 13, GRASS_TUFT: 14, GOLD_NODE: 15, SILVER_NODE: 16, PLATINUM_NODE: 17 };
+        const TILE_TYPES = { EMPTY: 0, TREE: 1, ROCK: 2, WOOD_BLOCK: 4, STONE_BLOCK: 5, BIRCH: 6, OAK: 7, SAKURA: 8, RUINS_WALL: 9, ARTIFACT_BOX: 10, BERRY_BUSH: 13, GRASS_TUFT: 14, GOLD_NODE: 15, SILVER_NODE: 16, PLATINUM_NODE: 17, VOID_TREE: 18 };
         const ENTITY_TYPES = { 
             SHADOW: 'SHADOW', ANGEL: 'ANGEL', HUMAN: 'HUMAN', MUTANT_HUMAN: 'MUTANT_HUMAN', 
             ARCHANGEL: 'ARCHANGEL', DEMON: 'DEMON', FALSE_ANGEL: 'FALSE_ANGEL', VOID: 'VOID',
@@ -681,6 +688,7 @@
             birch: [[null, '#ddd', '#111', null],['#ddd', '#fff', '#111', '#ddd'],[null, '#eee', '#eee', null],[null, '#eee', '#eee', null]],
             oak: [[null, '#282', '#282', null],['#282', '#3a3', '#3a3', '#282'],[null, '#754', '#754', null],[null, '#754', '#754', null]],
             sakura: [[null, '#fbc', '#fbc', null],['#fbc', '#fce', '#fce', '#fbc'],[null, '#532', '#532', null],[null, '#532', '#532', null]],
+            void_tree: [[null, '#505', '#505', null], ['#505', '#808', '#808', '#505'], [null, '#202', '#202', null], [null, '#202', '#202', null]],
             rock: [[null, '#888', null],['#aaa', '#888', '#aaa'],['#aaa', '#aaa', '#aaa']],
             gold_node: [[null, '#da0', null], ['#860', '#fc0', '#860'], ['#860', '#da0', '#860']],
             silver_node: [[null, '#ddd', null], ['#aaa', '#fff', '#aaa'], ['#aaa', '#ddd', '#aaa']],
@@ -699,15 +707,19 @@
             gold_ore: [['#fd0', '#da0', '#fd0'], ['#da0', '#b80', '#da0'], ['#fd0', '#da0', '#fd0']],
             silver_ore: [['#eee', '#ccc', '#eee'], ['#ccc', '#aaa', '#ccc'], ['#eee', '#ccc', '#eee']],
             platinum_ore: [['#eef', '#ccd', '#eef'], ['#ccd', '#aab', '#ccd'], ['#eef', '#ccd', '#eef']],
+            void_shard: [[null, '#a0a', null], ['#808', '#d0d', '#808'], [null, '#a0a', null]],
             gold_axe: [['#da0', '#fd0', null],[null, '#643', '#da0'],[null, '#643', null]],
             gold_pickaxe: [['#da0', '#da0', '#da0'],[null, '#643', null],[null, '#643', null]],
             gold_sword: [[null, '#da0', null],[null, '#fd0', null],[null, '#643', null]],
+            gold_sickle: [['#da0', '#da0', null], [null, '#643', '#da0'], [null, '#643', null], ['#643', null, null]],
             silver_axe: [['#ccc', '#eee', null],[null, '#643', '#ccc'],[null, '#643', null]],
             silver_pickaxe: [['#ccc', '#ccc', '#ccc'],[null, '#643', null],[null, '#643', null]],
             silver_sword: [[null, '#ccc', null],[null, '#eee', null],[null, '#643', null]],
+            silver_sickle: [['#ccc', '#eee', null], [null, '#643', '#ccc'], [null, '#643', null], ['#643', null, null]],
             platinum_axe: [['#bce', '#eef', null],[null, '#643', '#bce'],[null, '#643', null]],
             platinum_pickaxe: [['#bce', '#bce', '#bce'],[null, '#643', null],[null, '#643', null]],
             platinum_sword: [[null, '#bce', null],[null, '#eef', null],[null, '#643', null]],
+            platinum_sickle: [['#bce', '#eef', null], [null, '#643', '#bce'], [null, '#643', null], ['#643', null, null]],
             platinum_shield: [[null, '#bce', null], ['#bce', '#eef', '#bce'], [null, '#bce', null]],
             compass: [[null, '#888', null], ['#888', '#f00', '#888'], [null, '#888', null]],
             dark_orb: [[null, '#201', null], ['#302', '#101', '#302'], [null, '#201', null]],
@@ -732,6 +744,7 @@
             technology_shard: [[null, '#0ff', null], ['#0cc', '#fff', '#0cc'], [null, '#0ff', null]],
             ancient_circuit: [['#0a0', '#fd0', '#0a0'], [null, '#fd0', null], ['#0a0', '#fd0', '#0a0']],
             astral_artifact: [[null, '#a0f', '#f0f', null], ['#a0f', '#fff', '#fff', '#f0f'], ['#f0f', '#fff', '#fff', '#a0f'], [null, '#a0f', '#f0f', null]],
+            void_artifact: [[null, '#505', '#a0a', null], ['#505', '#202', '#202', '#a0a'], ['#505', '#202', '#202', '#a0a'], [null, '#505', '#a0a', null]],
             light_orb: [[null, '#ff0', null], ['#ff0', '#fff', '#ff0'], [null, '#ff0', null]],
             door: [['#864', '#975', '#864', '#975'], ['#864', '#975', '#dd0', '#975'], ['#864', '#975', '#864', '#975'], ['#864', '#975', '#864', '#975']],
             chest: [['#a85', '#c96', '#c96', '#a85'], ['#864', '#643', '#643', '#864'], ['#864', '#a85', '#ff0', '#a85'], ['#864', '#a85', '#a85', '#864']],
@@ -847,12 +860,8 @@
             "Предметы": {
                 "Компас": { description: "Указывает на ближайшие залежи руды, сундуки или артефакты.", art: art.compass },
                 "Платиновый щит": { description: "Блокирует 80% урона, если держать в руках.", art: art.platinum_shield },
-                "Топор (Каменный)": { description: "Прочный топор. Добывает в 2 раза больше ресурсов.", art: art.stone_axe },
-                "Кирка (Каменная)": { description: "Прочная кирка. Добывает в 2 раза больше ресурсов.", art: art.stone_pickaxe },
-                "Меч (Каменный)": { description: "Прочный меч. Урон: 5.", art: art.stone_sword },
-                "Топор (Огненный)": { description: "Мощный топор. Рубит сразу несколько деревьев. Замедляет при ношении. Урон ауры: 15/сек.", art: art.fire_axe },
-                "Меч (Огненный)": { description: "Очень мощный меч. Урон: 25.", art: art.fire_sword },
-                "Серп": { description: "Позволяет собирать ягоды. Слабое оружие.", art: art.sickle },
+                "Артефакт Бездны": { description: "Позволяет безопасно путешествовать между мирами. Враги не видят вас.", art: art.void_artifact },
+                "Серп": { description: "Позволяет собирать ягоды и наносить урон по площади.", art: art.sickle },
                 "Целебная мазь": { description: "Восстанавливает 50 ед. рассудка.", art: art.mental_salve },
                 "Ягода": { description: "Восстанавливает 20 рассудка и даёт 5 ед. щита.", art: art.berry },
                 "Спальный мешок": { description: "Позволяет пропустить ночь. Есть шанс кражи.", art: art.sleeping_bag },
@@ -869,12 +878,14 @@
                 "Камень": { description: "Ресурс для создания инструментов. Добывается из скал.", art: art.stone_block },
                 "Шар Тьмы": { description: "Эссенция тьмы, выпадающая из Теней.", art: art.dark_orb },
                 "Орб Света": { description: "Эссенция света, выпадающая из Ангелов.", art: art.light_orb },
+                "Осколок Бездны": { description: "Редкий ресурс из Странной Долины.", art: art.void_shard },
                 "Сухая трава": { description: "Редкая трава, используется для создания спальных принадлежностей.", art: art.withered_grass },
                 "Осколок Технологии": { description: "Компонент древних механизмов из руин.", art: art.technology_shard },
                 "Древняя плата": { description: "Редкий компонент из руин.", art: art.ancient_circuit },
             },
             "Мир": {
                 "Дерево": { description: "Источник дерева.", art: art.tree },
+                "Дерево Бездны": { description: "Растет в Странной Долине. Источник Осколков Бездны.", art: art.void_tree },
                 "Скала": { description: "Источник камня.", art: art.rock },
                 "Ягодный куст": { description: "Источник ягод. Требует времени для созревания.", art: art.berry_bush(true) },
                 "Пучок сухой травы": { description: "Источник сухой травы.", art: art.grass_tuft },
@@ -891,14 +902,17 @@
                 { output: { type: ITEM_TYPES.GOLD_AXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.GOLD_ORE, count: 3 }] },
                 { output: { type: ITEM_TYPES.GOLD_PICKAXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.GOLD_ORE, count: 3 }] },
                 { output: { type: ITEM_TYPES.GOLD_SWORD, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.GOLD_ORE, count: 2 }] },
+                { output: { type: ITEM_TYPES.GOLD_SICKLE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.GOLD_ORE, count: 2 }] },
                 // Silver Tools
                 { output: { type: ITEM_TYPES.SILVER_AXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.SILVER_ORE, count: 3 }] },
                 { output: { type: ITEM_TYPES.SILVER_PICKAXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.SILVER_ORE, count: 3 }] },
                 { output: { type: ITEM_TYPES.SILVER_SWORD, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.SILVER_ORE, count: 2 }] },
+                { output: { type: ITEM_TYPES.SILVER_SICKLE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.SILVER_ORE, count: 2 }] },
                 // Platinum Tools & Shield
                 { output: { type: ITEM_TYPES.PLATINUM_AXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.PLATINUM_ORE, count: 3 }] },
                 { output: { type: ITEM_TYPES.PLATINUM_PICKAXE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 2 }, { type: ITEM_TYPES.PLATINUM_ORE, count: 3 }] },
                 { output: { type: ITEM_TYPES.PLATINUM_SWORD, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.PLATINUM_ORE, count: 2 }] },
+                { output: { type: ITEM_TYPES.PLATINUM_SICKLE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.PLATINUM_ORE, count: 2 }] },
                 { output: { type: ITEM_TYPES.PLATINUM_SHIELD, count: 1 }, ingredients: [{ type: ITEM_TYPES.PLATINUM_ORE, count: 3 }, { type: ITEM_TYPES.SILVER_ORE, count: 2 }] },
 
                 { output: { type: ITEM_TYPES.SICKLE, count: 1 }, ingredients: [{ type: ITEM_TYPES.WOOD, count: 1 }, { type: ITEM_TYPES.STONE, count: 2 }] },
@@ -909,6 +923,7 @@
                 { output: { type: ITEM_TYPES.CAMPFIRE, count: 1 }, ingredients: [{ type: ITEM_TYPES.STONE, count: 3 }, { type: ITEM_TYPES.WOOD, count: 3 }] },
                 { output: { type: ITEM_TYPES.FLASHLIGHT, count: 1 }, ingredients: [{ type: ITEM_TYPES.LIGHT_ORB, count: 1 }, { type: ITEM_TYPES.TECHNOLOGY_SHARD, count: 2 }] },
                 { output: { type: ITEM_TYPES.ASTRAL_ARTIFACT, count: 1 }, ingredients: [{ type: ITEM_TYPES.TECHNOLOGY_SHARD, count: 3 }, { type: ITEM_TYPES.ANCIENT_CIRCUIT, count: 1 }] },
+                { output: { type: ITEM_TYPES.VOID_ARTIFACT, count: 1 }, ingredients: [{ type: ITEM_TYPES.ASTRAL_ARTIFACT, count: 1 }, { type: ITEM_TYPES.VOID_SHARD, count: 5 }] },
                 { output: { type: ITEM_TYPES.MYSTERIOUS_ARTIFACT, count: 1 }, ingredients: [
                     { type: ITEM_TYPES.TECHNOLOGY_SHARD, count: 1 }, 
                     { type: ITEM_TYPES.DESPAIR_CRYSTAL, count: 1 }, 
@@ -969,6 +984,7 @@
                         maxShield: player.maxShield
                     },
                     gameTime: gameTime,
+                    bossSpawnedToday: bossSpawnedToday,
                     placedObjects: serializablePlacedObjects,
                     world: world,
                     entities: serializableEntities,
@@ -1001,6 +1017,7 @@
                 player.maxShield = data.player.maxShield || 100;
                 player.inventory = data.player.inventory.map(deserializeItem);
                 gameTime = data.gameTime;
+                bossSpawnedToday = data.bossSpawnedToday || false;
                 
                 placedObjects = (data.placedObjects || []).map(obj => {
                     const newObj = {...obj};
@@ -1185,6 +1202,13 @@
                     if (currentBiome === BIOME_TYPES.MINE) {
                          if (Math.random() > 0.90) world[x][y] = TILE_TYPES.ROCK;
                     } else if (currentBiome === BIOME_TYPES.STRANGE_VALLEY) {
+                         // Strange Valley Populator
+                         if (Math.random() > 0.92) {
+                             world[x][y] = TILE_TYPES.VOID_TREE;
+                         } else if (Math.random() > 0.95) {
+                             world[x][y] = TILE_TYPES.RUINS_WALL;
+                         }
+
                          if (Math.random() > 0.995) {
                              spawnEntity(ENTITY_TYPES.STATUE, x * TILE_SIZE + TILE_SIZE/2, y * TILE_SIZE + TILE_SIZE/2);
                          } else if (Math.random() > 0.998) {
@@ -1206,12 +1230,16 @@
                             world[x][y] = TILE_TYPES.GRASS_TUFT;
                         }
                         
-                        // Ores
+                        // Ores (New Probabilities: Stone 50%, Silver 25%, Gold 20%, Platinum 5%)
                         if (world[x][y] === TILE_TYPES.EMPTY) {
-                            const oreRoll = Math.random();
-                            if (oreRoll < 0.001) world[x][y] = TILE_TYPES.PLATINUM_NODE; // Very Rare
-                            else if (oreRoll < 0.005) world[x][y] = TILE_TYPES.SILVER_NODE; // Rare
-                            else if (oreRoll < 0.012) world[x][y] = TILE_TYPES.GOLD_NODE; // Uncommon
+                            const oreChance = 0.02; // Overall chance to be an ore node
+                            if (Math.random() < oreChance) {
+                                const roll = Math.random();
+                                if (roll < 0.50) world[x][y] = TILE_TYPES.ROCK;
+                                else if (roll < 0.75) world[x][y] = TILE_TYPES.SILVER_NODE;
+                                else if (roll < 0.95) world[x][y] = TILE_TYPES.GOLD_NODE;
+                                else world[x][y] = TILE_TYPES.PLATINUM_NODE;
+                            }
                         }
 
                         if (world[x][y] === TILE_TYPES.EMPTY) {
@@ -1367,6 +1395,14 @@
 
             let timeScale = 1;
             const hour = Math.floor((gameTime % DAY_DURATION_SECONDS) / (DAY_DURATION_SECONDS / 24));
+            const currentDay = Math.floor(gameTime / DAY_DURATION_SECONDS);
+
+            if (currentDay > lastDay) {
+                bossSpawnedToday = false;
+                lastDay = currentDay;
+                showNotification("Наступил новый день...");
+            }
+
             const isNight = hour >= 20 || hour < 5;
             if (isNight) {
                 const isNearCampfire = placedObjects.some(obj => 
@@ -1483,7 +1519,8 @@
             const tileType = world[gridX][gridY];
             return tileType === TILE_TYPES.TREE || tileType === TILE_TYPES.ROCK || tileType === TILE_TYPES.WOOD_BLOCK ||
                    tileType === TILE_TYPES.STONE_BLOCK || tileType === TILE_TYPES.BIRCH || tileType === TILE_TYPES.OAK ||
-                   tileType === TILE_TYPES.SAKURA || tileType === TILE_TYPES.RUINS_WALL || tileType === TILE_TYPES.BERRY_BUSH;
+                   tileType === TILE_TYPES.SAKURA || tileType === TILE_TYPES.RUINS_WALL || tileType === TILE_TYPES.BERRY_BUSH ||
+                   tileType === TILE_TYPES.VOID_TREE;
         }
 
         function isPhysicallySolid(gridX, gridY, entity, isPhasing = false) {
@@ -1638,6 +1675,9 @@
         }
 
         function updateEntities(dt) {
+            const selectedItem = player.inventory[selectedHotbarSlot];
+            const isInVoidMode = selectedItem && selectedItem.type === ITEM_TYPES.VOID_ARTIFACT;
+
             for (let i = entities.length - 1; i >= 0; i--) {
                 const e = entities[i];
                 if (!e) continue;
@@ -1668,6 +1708,10 @@
                     }
 
                     if (e.isBoss) {
+                        if (e.type === ENTITY_TYPES.VOID) {
+                            addItemToInventory(ITEM_TYPES.ASTRAL_ARTIFACT, 1);
+                            showNotification("+1 Астральный артефакт");
+                        }
                         const drops = [ITEM_TYPES.FIRE_AXE, ITEM_TYPES.FIRE_PICKAXE, ITEM_TYPES.FIRE_SWORD, ITEM_TYPES.FIRE_SICKLE];
                         addItemToInventory(drops[Math.floor(Math.random() * drops.length)]);
                     }
@@ -1682,7 +1726,7 @@
                 if (e.type === ENTITY_TYPES.STATUE || e.type === ENTITY_TYPES.MIMIC) {
                     if (!e.aggressive) {
                         const dist = Math.hypot(e.x - player.x, e.y - player.y);
-                        if (dist < TILE_SIZE * 2.5) {
+                        if (dist < TILE_SIZE * 2.5 && !isInVoidMode) {
                             e.aggressive = true;
                             e.aggressionTimer = 9999;
                             showNotification(e.type === ENTITY_TYPES.STATUE ? "Статуя ожила!" : "Это не сундук!");
@@ -1700,7 +1744,12 @@
                     e.knockback.x *= 0.9; 
                     e.knockback.y *= 0.9;
                 } else {
-                    if (e.isBoss || (e.type === ENTITY_TYPES.HUMAN && e.aggressive) || e.type === ENTITY_TYPES.SHADOW || ((e.type === ENTITY_TYPES.STATUE || e.type === ENTITY_TYPES.MIMIC) && e.aggressive)) {
+                    const canAggro = !isInVoidMode || e.isBoss; // Bosses ignore void stealth? Maybe not. Let's make void mode OP.
+                    // Actually, let's make Void Mode make you invisible to ALL enemies except maybe the VOID Boss itself?
+                    // User said "hostile mobs". Void Boss is hostile. Let's say all mobs become passive.
+                    const isAggressive = (e.isBoss || (e.type === ENTITY_TYPES.HUMAN && e.aggressive) || e.type === ENTITY_TYPES.SHADOW || ((e.type === ENTITY_TYPES.STATUE || e.type === ENTITY_TYPES.MIMIC) && e.aggressive)) && !isInVoidMode;
+
+                    if (isAggressive) {
                         let target = {x: player.x, y: player.y};
                         if (e.type === ENTITY_TYPES.SHADOW) {
                             let closestDist = Math.hypot(e.x - player.x, e.y - player.y);
@@ -1728,7 +1777,8 @@
                             if (e.moveTimer <= 0) { e.angle = Math.random() * Math.PI * 2; e.moveTimer = Math.random() * 2 + 1; }
                             moveX = Math.cos(e.angle) * e.speed * 0.5 * dt; moveY = Math.sin(e.angle) * e.speed * 0.5 * dt;
                         }
-                    } else if (e.type === ENTITY_TYPES.ANGEL || e.type === ENTITY_TYPES.FALSE_ANGEL || (e.type === ENTITY_TYPES.HUMAN && !e.aggressive)) {
+                    } else if (e.type === ENTITY_TYPES.ANGEL || e.type === ENTITY_TYPES.FALSE_ANGEL || (e.type === ENTITY_TYPES.HUMAN && !e.aggressive) || isInVoidMode) {
+                        // Passive movement
                         e.moveTimer -= dt;
                         if (e.moveTimer <= 0) { e.angle = Math.random() * Math.PI * 2; e.moveTimer = Math.random() * 3 + 2; }
                         moveX = Math.cos(e.angle) * e.speed * dt; moveY = Math.sin(e.angle) * e.speed * dt;
@@ -1747,10 +1797,10 @@
                                 }
                             });
                         } else if (e.type === ENTITY_TYPES.FALSE_ANGEL) {
-                             if (Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS) damagePlayer(30 * dt, 'FALSE_ANGEL');
+                             if (Math.hypot(e.x - player.x, e.y - player.y) < ANGEL_HEAL_RADIUS && !isInVoidMode) damagePlayer(30 * dt, 'FALSE_ANGEL');
                         }
                         else if (e.type === ENTITY_TYPES.VOID) {
-                           if (Math.hypot(e.x - player.x, e.y - player.y) < VOID_AURA_RADIUS) {
+                           if (Math.hypot(e.x - player.x, e.y - player.y) < VOID_AURA_RADIUS && !isInVoidMode) {
                                 damagePlayer(VOID_AURA_DAMAGE * dt, 'VOID');
                             }
                         }
@@ -1761,7 +1811,7 @@
                     }
                 }
 
-                if (e.attackCooldown <= 0) {
+                if (e.attackCooldown <= 0 && !isInVoidMode) {
                     const distToPlayer = Math.hypot(e.x - player.x, e.y - player.y);
                     
                     if (e.isBoss) {
@@ -1875,7 +1925,7 @@
             if (entities.filter(e => e && e.type === ENTITY_TYPES.HUMAN).length < 8 && Math.random() < 0.005) spawnEntity(ENTITY_TYPES.HUMAN);
             if (entities.filter(e => e && e.type === ENTITY_TYPES.FALSE_ANGEL).length < 3 && Math.random() < 0.003) spawnEntity(ENTITY_TYPES.FALSE_ANGEL);
 
-            if (day > 3) {
+            if (day > 3 && !bossSpawnedToday) {
                 const bossExists = entities.some(e => e && e.isBoss);
                 if (!bossExists && Math.random() < 0.005) {
                     const bossPool = [ENTITY_TYPES.MUTANT_HUMAN, ENTITY_TYPES.ARCHANGEL, ENTITY_TYPES.DEMON];
@@ -1884,6 +1934,7 @@
                     }
                     const bossType = bossPool[Math.floor(Math.random() * bossPool.length)];
                     spawnEntity(bossType);
+                    bossSpawnedToday = true;
                     showNotification("Вы чувствуете зловещее присутствие...");
                 }
             }
@@ -1970,6 +2021,7 @@
                 else if (tile === TILE_TYPES.BIRCH) drawPixelArt(dX, dY, TILE_SIZE, art.birch);
                 else if (tile === TILE_TYPES.OAK) drawPixelArt(dX, dY, TILE_SIZE, art.oak);
                 else if (tile === TILE_TYPES.SAKURA) drawPixelArt(dX, dY, TILE_SIZE, art.sakura);
+                else if (tile === TILE_TYPES.VOID_TREE) drawPixelArt(dX, dY, TILE_SIZE, art.void_tree);
                 else if (tile === TILE_TYPES.ROCK) drawPixelArt(dX, dY, TILE_SIZE, art.rock);
                 else if (tile === TILE_TYPES.WOOD_BLOCK) drawPixelArt(dX, dY, TILE_SIZE, art.wood_block);
                 else if (tile === TILE_TYPES.STONE_BLOCK) drawPixelArt(dX, dY, TILE_SIZE, art.stone_block);
@@ -2115,16 +2167,17 @@
                 ctx.restore();
             }
 
+            // Void Artifact Visual Effect
+            if (selectedItem && selectedItem.type === ITEM_TYPES.VOID_ARTIFACT) {
+                ctx.fillStyle = 'rgba(40, 0, 60, 0.4)'; // Purple Haze
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
              // Compass drawing
              if (selectedItem && selectedItem.type === ITEM_TYPES.COMPASS && gameState === 'playing') {
                 let nearest = null;
                 let minDist = Infinity;
                 
-                // Find nearest ore/chest
-                // Scan a larger area or whole world? Whole world is fine for 600x600 grid in JS if optimized, but let's limit scan radius for performance if needed. 
-                // Actually scanning placedObjects is fast. Scanning world tiles is slow.
-                // Let's scan visible + padding, or just scan entire placedObjects and a random sampling of tiles?
-                // Better: Scan a radius of 50 tiles.
                 const scanRadius = 50;
                 const pGridX = Math.floor(player.x / TILE_SIZE);
                 const pGridY = Math.floor(player.y / TILE_SIZE);
@@ -2249,6 +2302,7 @@
                 if (item.type.id === 'GOLD_ORE') artKey = 'gold_ore';
                 if (item.type.id === 'SILVER_ORE') artKey = 'silver_ore';
                 if (item.type.id === 'PLATINUM_ORE') artKey = 'platinum_ore';
+                if (item.type.id === 'VOID_SHARD') artKey = 'void_shard';
                 
                 if (art[artKey]) {
                     drawPixelArtOnCtx(iconCtx, 0, 0, iconSize, art[artKey]);
@@ -2651,7 +2705,9 @@
                 if(toolType === 'FIRE_SICKLE') { 
                     sickleDamage = 12.5; // Half of fire sword (25)
                     knockbackForce = 200; // Half of fire sword (400)
-                }
+                } else if(toolType === 'GOLD_SICKLE') { sickleDamage = 2; }
+                else if(toolType === 'SILVER_SICKLE') { sickleDamage = 5; }
+                else if(toolType === 'PLATINUM_SICKLE') { sickleDamage = 20; }
                 
                 entities.forEach(e => { 
                     if (!e) return;
@@ -2700,7 +2756,7 @@
                 return;
             }
             if (tile === TILE_TYPES.BERRY_BUSH) {
-                if (selectedItem && (selectedItem.type.id === 'SICKLE' || selectedItem.type.id === 'FIRE_SICKLE')) {
+                if (selectedItem && (selectedItem.type.id.includes('SICKLE'))) {
                     const bush = growableObjects.find(b => b.x === gridX && b.y === gridY);
                     if (bush && bush.growth >= BERRY_GROWTH_TIME) {
                         addItemToInventory(ITEM_TYPES.BERRY, 2 + Math.floor(Math.random() * 2)); // 2-3 berries
@@ -2736,15 +2792,40 @@
                         selectedItem.type.id.includes('GOLD') ? 3 : 
                         selectedItem.type.id.includes('STONE') ? 2 : 1;
                         
-                    if ((tile === TILE_TYPES.TREE || tile === TILE_TYPES.BIRCH || tile === TILE_TYPES.OAK || tile === TILE_TYPES.SAKURA) && toolType.includes('AXE')) {
-                         if (tile === TILE_TYPES.TREE) addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower);
-                         else if (tile === TILE_TYPES.BIRCH) addItemToInventory(ITEM_TYPES.WOOD, 2 * toolPower); 
-                         else if (tile === TILE_TYPES.OAK) { addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower); if (Math.random() < 0.5) addItemToInventory(ITEM_TYPES.ACORN, 1); }
-                         else if (tile === TILE_TYPES.SAKURA) { addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower); addItemToInventory(ITEM_TYPES.SAKURA_PETAL, 1 * toolPower); }
-                         world[gridX][gridY] = TILE_TYPES.EMPTY; usedTool = true;
+                    if ((tile === TILE_TYPES.TREE || tile === TILE_TYPES.BIRCH || tile === TILE_TYPES.OAK || tile === TILE_TYPES.SAKURA || tile === TILE_TYPES.VOID_TREE)) {
+                         if (toolType.includes('AXE')) {
+                             if (tile === TILE_TYPES.TREE) addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower);
+                             else if (tile === TILE_TYPES.BIRCH) addItemToInventory(ITEM_TYPES.WOOD, 2 * toolPower); 
+                             else if (tile === TILE_TYPES.OAK) { addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower); if (Math.random() < 0.5) addItemToInventory(ITEM_TYPES.ACORN, 1); }
+                             else if (tile === TILE_TYPES.SAKURA) { addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower); addItemToInventory(ITEM_TYPES.SAKURA_PETAL, 1 * toolPower); }
+                             else if (tile === TILE_TYPES.VOID_TREE) { addItemToInventory(ITEM_TYPES.WOOD, 1 * toolPower); addItemToInventory(ITEM_TYPES.VOID_SHARD, 1); showNotification("+ Осколок Бездны"); }
+                             world[gridX][gridY] = TILE_TYPES.EMPTY; usedTool = true;
+                         } else if (toolType.includes('PICKAXE')) {
+                             // Penalty for using Pickaxe on Wood
+                             if (Math.random() < 0.5) {
+                                 addItemToInventory(ITEM_TYPES.WOOD, 1);
+                             } else {
+                                 showNotification("Дерево раскрошилось...");
+                             }
+                             if (tile === TILE_TYPES.VOID_TREE) { // Void tree is hard, no shards without axe
+                                  showNotification("Нужен топор для этого дерева.");
+                                  return;
+                             }
+                             world[gridX][gridY] = TILE_TYPES.EMPTY; usedTool = true;
+                         }
                     } 
-                    else if (tile === TILE_TYPES.ROCK && toolType.includes('PICKAXE')) { 
-                        world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.STONE, 1 * toolPower); usedTool = true;
+                    else if (tile === TILE_TYPES.ROCK) { 
+                        if (toolType.includes('PICKAXE')) {
+                            world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.STONE, 1 * toolPower); usedTool = true;
+                        } else if (toolType.includes('AXE')) {
+                            // Penalty for using Axe on Stone
+                            if (Math.random() < 0.5) {
+                                 addItemToInventory(ITEM_TYPES.STONE, 1);
+                            } else {
+                                 showNotification("Камень раскрошился...");
+                            }
+                            world[gridX][gridY] = TILE_TYPES.EMPTY; usedTool = true;
+                        }
                     }
                     else if (tile === TILE_TYPES.GOLD_NODE && toolType.includes('PICKAXE') && toolPower >= 2) {
                          world[gridX][gridY] = TILE_TYPES.EMPTY; addItemToInventory(ITEM_TYPES.GOLD_ORE, 1 + Math.floor(Math.random() * 2)); usedTool = true; showNotification("+ Золотая руда");
@@ -3251,3 +3332,4 @@
     </script>
 </body>
 </html>
+
