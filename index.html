@@ -23,7 +23,7 @@
             font-family: 'Courier New', Courier, monospace;
             margin: 0;
             padding: 0;
-            height: 100vh;
+            height: 100dvh;
             width: 100vw;
             overflow: hidden;
             image-rendering: pixelated;
@@ -425,7 +425,7 @@
             flex-wrap: nowrap;
             gap: 20px;
             padding: var(--ui-padding);
-            align-items: stretch;
+            align-items: center;
             justify-content: center;
             z-index: 200;
         }
@@ -435,7 +435,7 @@
             border: 2px solid var(--border-color);
             border-radius: var(--ui-radius);
             padding: 15px;
-            max-height: calc(100vh - 40px);
+            max-height: 85dvh; 
             display: flex;
             flex-direction: column;
             width: clamp(300px, 45vw, 450px);
@@ -533,7 +533,7 @@
 
             .inventory-panel {
                 width: 95vw;
-                max-height: 45vh;
+                max-height: 42dvh;
             }
         }
 
@@ -543,7 +543,7 @@
             border: 2px solid var(--border-color);
             border-radius: var(--ui-radius);
             width: clamp(300px, 90vw, 800px);
-            height: clamp(400px, 80vh, 700px);
+            height: clamp(400px, 80dvh, 700px);
             padding: 20px;
             box-sizing: border-box;
             display: flex;
